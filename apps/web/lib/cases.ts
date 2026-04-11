@@ -15,9 +15,20 @@ export type CaseDetail = CaseSummary & {
   target: string;
   riskScore: number;
   evidenceCount: number;
+  evidencePacks: EvidencePackSummary[];
   notes: string[];
   evidenceItems: string[];
   nextActions: string[];
+};
+
+export type EvidencePackSummary = {
+  id: string;
+  title: string;
+  source: string;
+  capturedAt: string;
+  artifactCount: number;
+  summary: string;
+  items: string[];
 };
 
 type ApiCaseRecord = {
@@ -40,6 +51,28 @@ type ApiCaseRecord = {
   evidenceItems?: string[];
   next_actions?: string[];
   nextActions?: string[];
+  evidence_packs?: unknown;
+  evidencePacks?: unknown;
+};
+
+type ApiEvidencePackRecord = {
+  evidence_pack_id?: string;
+  evidencePackId?: string;
+  id?: string;
+  title?: string;
+  name?: string;
+  source?: string;
+  platform?: string;
+  captured_at?: string;
+  capturedAt?: string;
+  updated_at?: string;
+  updatedAt?: string;
+  artifact_count?: string | number;
+  artifactCount?: string | number;
+  summary?: string;
+  items?: unknown;
+  evidence_items?: unknown;
+  evidenceItems?: unknown;
 };
 
 const mockCases: CaseDetail[] = [
@@ -53,6 +86,26 @@ const mockCases: CaseDetail[] = [
     target: "阿迪达斯",
     riskScore: 92,
     evidenceCount: 8,
+    evidencePacks: [
+      {
+        id: "pack-adidas-001",
+        title: "商品页抓取包",
+        source: "淘宝商品页",
+        capturedAt: "2026-04-11 10:12",
+        artifactCount: 4,
+        summary: "保存了页面截图、标题、URL 和抓取日志。",
+        items: ["URL", "页面标题", "全页截图", "抓取时间"],
+      },
+      {
+        id: "pack-adidas-002",
+        title: "图片比对包",
+        source: "图片资源",
+        capturedAt: "2026-04-11 10:18",
+        artifactCount: 4,
+        summary: "保存了图片哈希、对比结果和固证日志。",
+        items: ["图片哈希", "对比结果", "HTML", "操作日志"],
+      },
+    ],
     notes: [
       "商品标题与目标品牌高度近似。",
       "页面视觉元素存在品牌混淆风险。",
@@ -71,6 +124,17 @@ const mockCases: CaseDetail[] = [
     target: "官方品牌站",
     riskScore: 78,
     evidenceCount: 5,
+    evidencePacks: [
+      {
+        id: "pack-homepage-001",
+        title: "首页巡检包",
+        source: "品牌官网",
+        capturedAt: "2026-04-11 09:42",
+        artifactCount: 3,
+        summary: "保留了页面快照、DOM 变化和时间戳。",
+        items: ["URL", "页面截图", "抓取时间"],
+      },
+    ],
     notes: ["页面近期更新过内容。", "需要补充更多历史快照。", "建议先完成人工复核。"],
     evidenceItems: ["URL", "页面标题", "全页截图", "页面文本", "抓取时间"],
     nextActions: ["继续巡检", "补抓历史页面", "发起复核"],
@@ -85,6 +149,26 @@ const mockCases: CaseDetail[] = [
     target: "品牌授权页面",
     riskScore: 67,
     evidenceCount: 6,
+    evidencePacks: [
+      {
+        id: "pack-jd-001",
+        title: "图文混用抓取包",
+        source: "京东店铺",
+        capturedAt: "2026-04-10 20:05",
+        artifactCount: 3,
+        summary: "包含页面截图、文本提取和图片哈希。",
+        items: ["截图", "文本", "图片哈希"],
+      },
+      {
+        id: "pack-jd-002",
+        title: "通知待办包",
+        source: "推送任务",
+        capturedAt: "2026-04-10 20:12",
+        artifactCount: 3,
+        summary: "包含待办信息、通知目标和处理状态。",
+        items: ["邮件通知", "钉钉通知", "处理状态"],
+      },
+    ],
     notes: ["图文混用，需拆分识别文字与图片。", "风险中等偏高。", "后续可进入投诉材料阶段。"],
     evidenceItems: ["URL", "页面标题", "截图", "文本", "图片哈希", "抓取时间"],
     nextActions: ["发送邮箱通知", "生成平台投诉函", "等待审核"],
@@ -122,6 +206,22 @@ function toNumberValue(value: unknown, fallback = 0) {
   return fallback;
 }
 
+function toStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((entry) => toStringValue(entry)).filter(Boolean);
+}
+
+function buildEvidencePacksEndpoint(caseId: string, variant: "path" | "query" = "path") {
+  if (variant === "path") {
+    return buildCasesEndpoint(`cases/${encodeURIComponent(caseId)}/evidence-packs`);
+  }
+
+  return buildCasesEndpoint(`evidence-packs?case_id=${encodeURIComponent(caseId)}`);
+}
+
 function buildCasesEndpoint(path = "cases") {
   const baseUrl = getApiV1BaseUrl();
   if (!baseUrl) {
@@ -145,6 +245,28 @@ function extractCaseList(payload: unknown): CaseSummary[] {
         : undefined;
 
   return Array.isArray(candidates) ? (candidates as CaseSummary[]) : [];
+}
+
+function extractEvidencePackList(payload: unknown): EvidencePackSummary[] {
+  const candidates =
+    Array.isArray(payload)
+      ? payload
+      : typeof payload === "object" && payload !== null
+        ? [
+            (payload as { items?: unknown }).items,
+            (payload as { data?: unknown }).data,
+            (payload as { evidence_packs?: unknown }).evidence_packs,
+            (payload as { evidencePacks?: unknown }).evidencePacks,
+          ].find(Array.isArray)
+        : undefined;
+
+  if (!Array.isArray(candidates)) {
+    return [];
+  }
+
+  return candidates
+    .map((item, index) => normalizeApiEvidencePack(item as ApiEvidencePackRecord, index))
+    .filter(Boolean);
 }
 
 function extractCaseDetail(payload: unknown): CaseDetail | undefined {
@@ -172,6 +294,28 @@ function extractCaseDetail(payload: unknown): CaseDetail | undefined {
   }
 
   return undefined;
+}
+
+function normalizeApiEvidencePack(record: ApiEvidencePackRecord, index = 0): EvidencePackSummary {
+  const source = toStringValue(record.source || record.platform, "未知来源");
+  const items = toStringArray(record.items || record.evidence_items || record.evidenceItems);
+  const artifactCount = toNumberValue(record.artifact_count ?? record.artifactCount, items.length);
+  const title = toStringValue(record.title || record.name, `${source}证据包`);
+  const capturedAt = toStringValue(record.captured_at || record.capturedAt || record.updated_at || record.updatedAt, "待补充");
+  const summary = toStringValue(
+    record.summary,
+    `${source} · ${artifactCount || items.length || index + 1} 个材料`,
+  );
+
+  return {
+    id: toStringValue(record.evidence_pack_id || record.evidencePackId || record.id, `evidence-pack-${index + 1}`),
+    title,
+    source,
+    capturedAt,
+    artifactCount: artifactCount || items.length || 0,
+    summary,
+    items: items.length ? items : [source, "页面截图", "抓取时间"],
+  };
 }
 
 function normalizeApiCaseSummary(record: ApiCaseRecord, fallbackId = ""): CaseSummary {
@@ -227,9 +371,27 @@ function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDet
     target: toStringValue(record.target, summary.source),
     riskScore,
     evidenceCount,
+    evidencePacks: [],
     notes,
     evidenceItems,
     nextActions,
+  };
+}
+
+function mergeCaseDetailWithEvidencePacks(
+  detail: CaseDetail,
+  evidencePacks: EvidencePackSummary[],
+): CaseDetail {
+  const mergedPacks = evidencePacks.length ? evidencePacks : detail.evidencePacks;
+  const flattenedItems = mergedPacks.length
+    ? mergedPacks.flatMap((pack) => pack.items).filter(Boolean)
+    : detail.evidenceItems;
+
+  return {
+    ...detail,
+    evidencePacks: mergedPacks,
+    evidenceCount: mergedPacks.length || detail.evidenceCount,
+    evidenceItems: flattenedItems.length ? Array.from(new Set(flattenedItems)) : detail.evidenceItems,
   };
 }
 
@@ -267,23 +429,74 @@ export async function getCases() {
   }
 }
 
+async function fetchJson(endpoint: string) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2500);
+  try {
+    const response = await fetch(endpoint, {
+      cache: "no-store",
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      return undefined;
+    }
+
+    return await response.json();
+  } catch {
+    return undefined;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+async function fetchApiCaseDetail(caseId: string) {
+  const detailEndpoint = buildCasesEndpoint(`cases/${encodeURIComponent(caseId)}`);
+  if (!detailEndpoint) {
+    return undefined;
+  }
+
+  const payload = await fetchJson(detailEndpoint);
+  const detail = extractCaseDetail(payload);
+  if (!detail) {
+    return undefined;
+  }
+
+  const evidencePackEndpoints = [
+    buildEvidencePacksEndpoint(caseId, "path"),
+    buildEvidencePacksEndpoint(caseId, "query"),
+  ].filter(Boolean);
+
+  let evidencePacks: EvidencePackSummary[] = [];
+  for (const endpoint of evidencePackEndpoints) {
+    const packPayload = await fetchJson(endpoint);
+    evidencePacks = extractEvidencePackList(packPayload);
+    if (evidencePacks.length) {
+      break;
+    }
+  }
+
+  const payloadRecord = payload as ApiCaseRecord;
+  const inlinePacks = extractEvidencePackList(
+    (payloadRecord.evidence_packs as unknown) || (payloadRecord.evidencePacks as unknown),
+  );
+
+  return mergeCaseDetailWithEvidencePacks(detail, evidencePacks.length ? evidencePacks : inlinePacks);
+}
+
 export async function getCaseById(caseId: string) {
+  const apiDetail = await fetchApiCaseDetail(caseId);
+  if (apiDetail) {
+    return apiDetail;
+  }
+
   const endpoint = buildCasesEndpoint(`cases/${encodeURIComponent(caseId)}`);
   if (endpoint) {
     try {
-      const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 2500);
-      const response = await fetch(endpoint, {
-        cache: "no-store",
-        signal: controller.signal,
-      }).finally(() => clearTimeout(timeout));
-
-      if (response.ok) {
-        const payload = await response.json();
-        const item = extractCaseDetail(payload);
-        if (item) {
-          return item;
-        }
+      const payload = await fetchJson(endpoint);
+      const item = extractCaseDetail(payload);
+      if (item) {
+        return item;
       }
     } catch {
       // fall back to mock
