@@ -1,3 +1,5 @@
+__test__ = False
+
 from pathlib import Path
 import sys
 
