@@ -33,3 +33,5 @@ class DocumentTemplateService:
     def list_templates(self) -> list[DocumentTemplateSummary]:
         return list(self._templates)
 
+    def get_template(self, template_key: str) -> DocumentTemplateSummary | None:
+        return next((item for item in self._templates if item.template_key == template_key), None)

@@ -1,8 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from app.api.deps import get_case_service
+from app.api.deps import get_case_service, get_evidence_service
 from app.schemas.cases import CaseDetail, CaseListResponse, CaseStatus, CaseSummary
 from app.services.cases import CaseService
+from app.services.evidence import EvidenceService
 
 router = APIRouter()
 
@@ -27,3 +28,15 @@ def get_case(
     if item is None:
         raise HTTPException(status_code=404, detail="案件不存在")
     return item
+
+
+@router.get("/{case_id}/evidence-packs", summary="案件下证据包列表")
+def list_case_evidence_packs(
+    case_id: str,
+    case_service: CaseService = Depends(get_case_service),
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+):
+    item = case_service.get_case(case_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="案件不存在")
+    return evidence_service.list_packs(case_id=case_id)

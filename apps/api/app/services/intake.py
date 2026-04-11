@@ -51,6 +51,11 @@ class IntakeService:
             note=payload.request_id,
             capture_channel=payload.source or "browser_extension",
         )
+        self.evidence_service.persist_capture_artifacts(
+            evidence,
+            raw_html=payload.html,
+            screenshot_base64=payload.screenshot_base64,
+        )
         refreshed_case = self.case_service.attach_evidence(case.case_id)
         return refreshed_case or case, evidence
 

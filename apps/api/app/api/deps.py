@@ -1,9 +1,11 @@
 from fastapi import Request
 
 from app.services.cases import CaseService
+from app.services.drafts import DocumentDraftService
 from app.services.evidence import EvidenceService
 from app.services.intake import IntakeService
 from app.services.hermes import HermesOrchestrator
+from app.services.monitoring import MonitorTaskService
 from app.services.notifications import NotificationAdapter
 from app.services.playwright import PlaywrightWorker
 from app.services.templates import DocumentTemplateService
@@ -19,6 +21,14 @@ def get_evidence_service(request: Request) -> EvidenceService:
 
 def get_template_service(request: Request) -> DocumentTemplateService:
     return request.app.state.services["templates"]
+
+
+def get_draft_service(request: Request) -> DocumentDraftService:
+    return request.app.state.services["drafts"]
+
+
+def get_monitor_task_service(request: Request) -> MonitorTaskService:
+    return request.app.state.services["monitoring"]
 
 
 def get_hermes_orchestrator(request: Request) -> HermesOrchestrator:

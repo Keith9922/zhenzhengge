@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends
+from fastapi import HTTPException
 
 from app.api.deps import get_evidence_service, get_hermes_orchestrator, get_playwright_worker
 from app.schemas.evidence import EvidencePackCreateRequest, EvidencePackRecord, EvidencePackResponse
@@ -16,6 +17,17 @@ def list_evidence_packs(
 ) -> list[EvidencePackRecord]:
     items = evidence_service.list_packs(case_id=case_id)
     return items
+
+
+@router.get("/{evidence_pack_id}", response_model=EvidencePackRecord, summary="证据包详情")
+def get_evidence_pack(
+    evidence_pack_id: str,
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+) -> EvidencePackRecord:
+    item = evidence_service.get_pack(evidence_pack_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="证据包不存在")
+    return item
 
 
 @router.post("", response_model=EvidencePackResponse, summary="创建证据包")

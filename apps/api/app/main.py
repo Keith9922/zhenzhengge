@@ -9,9 +9,11 @@ from app.api.v1.endpoints.health import router as health_router
 from app.core.config import Settings, get_settings
 from app.core.storage import SQLiteStorage
 from app.services.cases import CaseService
+from app.services.drafts import DocumentDraftService
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
 from app.services.notifications import NotificationAdapter
+from app.services.monitoring import MonitorTaskService
 from app.services.playwright import PlaywrightWorker
 from app.services.intake import IntakeService
 from app.services.templates import DocumentTemplateService
@@ -25,11 +27,18 @@ async def lifespan(app: FastAPI):
         "cases": CaseService(app.state.storage),
         "evidence": EvidenceService(app.state.storage),
         "templates": DocumentTemplateService(),
+        "monitoring": MonitorTaskService(app.state.storage),
         "hermes": HermesOrchestrator(),
         "playwright": PlaywrightWorker(),
-        "notifications": NotificationAdapter(),
+        "notifications": NotificationAdapter(app.state.storage, app.state.settings),
         "intake": None,
+        "drafts": None,
     }
+    app.state.services["drafts"] = DocumentDraftService(
+        app.state.storage,
+        case_service=app.state.services["cases"],
+        template_service=app.state.services["templates"],
+    )
     app.state.services["intake"] = IntakeService(
         case_service=app.state.services["cases"],
         evidence_service=app.state.services["evidence"],
@@ -44,7 +53,7 @@ def create_app(settings_obj: Settings | None = None) -> FastAPI:
     app = FastAPI(
         title=active_settings.app_name,
         version=active_settings.app_version,
-        description="证证鸽后端骨架：案件、证据包、文书模板、通知与工作流编排预留位。",
+        description="证证鸽后端：案件、证据包、监控任务、通知配置与文书草稿服务。",
         docs_url="/docs" if active_settings.enable_docs else None,
         redoc_url=None,
         lifespan=lifespan,
