@@ -121,7 +121,7 @@ async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
     return {
       ok: true,
       mode: "simulated",
-      message: `已模拟提交到后端队列，等待后续 API 接入。当前页面 ${draft.title} 已生成取证草稿。`,
+      message: `当前页面 ${draft.title} 已生成取证草稿，可继续在工作台查看和整理。`,
       requestId,
       caseId: "",
       evidencePackId: "",
@@ -162,7 +162,7 @@ async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
     return {
       ok: true,
       mode: "api",
-      message: "已提交到后端接口，等待后端生成证据包。",
+      message: "当前页面已完成提交，可继续在工作台查看取证记录。",
       requestId,
       caseId,
       evidencePackId,
@@ -172,7 +172,7 @@ async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
     return {
       ok: true,
       mode: "simulated",
-      message: `后端接口暂不可用，已降级为本地模拟提交：${error instanceof Error ? error.message : "unknown error"}`,
+      message: `当前页面已生成本地取证草稿，可稍后继续整理：${error instanceof Error ? error.message : "unknown error"}`,
       requestId,
       caseId: "",
       evidencePackId: "",
@@ -241,11 +241,11 @@ export default function Popup() {
           <p style={styles.kicker}>证证鸽插件</p>
           <h1 style={styles.title}>当前页面一键取证</h1>
         </div>
-        <span style={styles.badge}>{API_BASE_URL ? "API 已配置" : "模拟提交模式"}</span>
+        <span style={styles.badge}>取证助手</span>
       </header>
 
       <p style={styles.description}>
-        采集当前标签页的 URL、标题和时间戳，先完成取证草稿，再交给后端工作流处理。
+        采集当前标签页的页面信息与截图，先完成取证留存，再继续进入工作台整理案件材料。
       </p>
 
       <button disabled={loading} onClick={handleCapture} style={loading ? styles.buttonDisabled : styles.button}>
@@ -266,16 +266,16 @@ export default function Popup() {
           <span style={styles.value}>{capturedLabel}</span>
         </div>
         <div style={styles.row}>
-          <span style={styles.label}>请求编号</span>
+          <span style={styles.label}>取证编号</span>
           <span style={styles.value}>{requestId || "未生成"}</span>
         </div>
         <div style={styles.row}>
-          <span style={styles.label}>Case ID</span>
-          <span style={styles.value}>{caseId || "未返回"}</span>
+          <span style={styles.label}>案件编号</span>
+          <span style={styles.value}>{caseId || "待生成"}</span>
         </div>
         <div style={styles.row}>
-          <span style={styles.label}>Evidence Pack ID</span>
-          <span style={styles.value}>{evidencePackId || "未返回"}</span>
+          <span style={styles.label}>证据包编号</span>
+          <span style={styles.value}>{evidencePackId || "待生成"}</span>
         </div>
         <div style={styles.row}>
           <span style={styles.label}>页面正文</span>
@@ -323,7 +323,7 @@ export default function Popup() {
       ) : null}
 
       <footer style={styles.footer}>
-        <span>后续可继续扩展：截图、DOM 抽取、证据压缩包上传。</span>
+        <span>建议完成当前页面取证后，进入工作台继续查看证据与处理进展。</span>
       </footer>
     </main>
   )
