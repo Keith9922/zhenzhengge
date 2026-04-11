@@ -1,6 +1,6 @@
 import { getApiV1BaseUrl } from "@/lib/env";
 
-export type CaseStatus = "高风险" | "待复核" | "处理中" | "已完成";
+export type CaseStatus = string;
 
 export type CaseSummary = {
   id: string;
@@ -18,6 +18,28 @@ export type CaseDetail = CaseSummary & {
   notes: string[];
   evidenceItems: string[];
   nextActions: string[];
+};
+
+type ApiCaseRecord = {
+  case_id?: string;
+  caseId?: string;
+  id?: string;
+  platform?: string;
+  updated_at?: string;
+  updatedAt?: string;
+  status?: string;
+  risk_level?: string | number;
+  riskLevel?: string | number;
+  title?: string;
+  summary?: string;
+  target?: string;
+  evidence_count?: string | number;
+  evidenceCount?: string | number;
+  notes?: string[];
+  evidence_items?: string[];
+  evidenceItems?: string[];
+  next_actions?: string[];
+  nextActions?: string[];
 };
 
 const mockCases: CaseDetail[] = [
@@ -73,13 +95,40 @@ function normalize(value: string) {
   return value.trim().toLowerCase();
 }
 
-function buildCasesEndpoint(path = "") {
+function toStringValue(value: unknown, fallback = "") {
+  if (typeof value === "string") {
+    return value.trim() || fallback;
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return fallback;
+}
+
+function toNumberValue(value: unknown, fallback = 0) {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+
+  return fallback;
+}
+
+function buildCasesEndpoint(path = "cases") {
   const baseUrl = getApiV1BaseUrl();
   if (!baseUrl) {
     return "";
   }
 
-  const normalizedPath = path ? `/${path.replace(/^\/+/, "")}` : "/cases";
+  const normalizedPath = `/${path.replace(/^\/+/, "")}`;
   return `${baseUrl}${normalizedPath}`;
 }
 
@@ -103,16 +152,85 @@ function extractCaseDetail(payload: unknown): CaseDetail | undefined {
     return undefined;
   }
 
-  const direct = payload as CaseDetail & { item?: unknown; data?: unknown; case?: unknown };
+  const direct = payload as ApiCaseRecord & {
+    item?: unknown;
+    data?: unknown;
+    case?: unknown;
+  };
   const candidates = [direct, direct.item, direct.data, direct.case].filter(Boolean);
 
   for (const candidate of candidates) {
-    if (candidate && typeof candidate === "object" && "id" in candidate && "title" in candidate) {
-      return candidate as CaseDetail;
+    const record = candidate as ApiCaseRecord;
+    if (record && typeof record === "object") {
+      const id = record.case_id || record.caseId || record.id;
+      if (!id) {
+        continue;
+      }
+
+      return normalizeApiCaseDetail(record, String(id));
     }
   }
 
   return undefined;
+}
+
+function normalizeApiCaseSummary(record: ApiCaseRecord, fallbackId = ""): CaseSummary {
+  const id = toStringValue(record.case_id || record.caseId || record.id, fallbackId);
+  const platform = toStringValue(record.platform, "未知平台");
+  const updatedAt = toStringValue(record.updated_at || record.updatedAt, "待更新");
+  const rawStatus = toStringValue(record.status, "待复核");
+  const riskLevel = toStringValue(record.risk_level ?? record.riskLevel, "未知");
+  const title = toStringValue(record.title, `${platform}案件`);
+  const summary = toStringValue(
+    record.summary,
+    `来源：${platform} · 风险等级：${riskLevel} · 当前状态：${rawStatus}`,
+  );
+
+  return {
+    id,
+    title,
+    status: rawStatus,
+    summary,
+    source: platform,
+    updatedAt,
+  };
+}
+
+function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDetail {
+  const summary = normalizeApiCaseSummary(record, fallbackId);
+  const riskLevel = toStringValue(record.risk_level ?? record.riskLevel, "0");
+  const riskScore = toNumberValue(record.risk_level ?? record.riskLevel, 0);
+  const evidenceCount = toNumberValue(record.evidence_count ?? record.evidenceCount, 0);
+  const notes =
+    Array.isArray(record.notes) && record.notes.length
+      ? record.notes
+      : [
+          `平台：${summary.source}`,
+          `风险等级：${riskLevel}`,
+          `请结合证据包和人工复核结果继续处理。`,
+        ];
+  const evidenceItems =
+    Array.isArray(record.evidence_items) && record.evidence_items.length
+      ? record.evidence_items
+      : Array.isArray(record.evidenceItems) && record.evidenceItems.length
+        ? record.evidenceItems
+        : ["URL", "页面标题", "截图", "文本", "抓取时间"];
+  const nextActions =
+    Array.isArray(record.next_actions) && record.next_actions.length
+      ? record.next_actions
+      : Array.isArray(record.nextActions) && record.nextActions.length
+        ? record.nextActions
+        : ["生成文书初稿", "推送通知", "人工复核"];
+
+  return {
+    ...summary,
+    target: toStringValue(record.target, summary.source),
+    riskScore,
+    evidenceCount,
+    notes,
+    evidenceItems,
+    nextActions,
+  };
 }
 
 export async function getCases() {
@@ -134,7 +252,10 @@ export async function getCases() {
     }
 
     const payload: unknown = await response.json();
-    const items = extractCaseList(payload);
+    const items = extractCaseList(payload).map((item, index) => {
+      const record = item as ApiCaseRecord;
+      return normalizeApiCaseSummary(record, record.case_id || record.caseId || record.id || `api-case-${index + 1}`);
+    });
 
     if (!items.length) {
       return { items: mockCases, source: "mock" as const };
