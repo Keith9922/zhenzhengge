@@ -1,4 +1,4 @@
-import { BookOpen, FileText, FolderKanban, ScanSearch, ShieldCheck, Sparkles } from "lucide-react";
+import { FileText, FolderKanban, ScanSearch, ShieldCheck, Sparkles } from "lucide-react";
 import { publicDocEntries } from "@/lib/docs";
 
 export const productHighlights = [
@@ -26,11 +26,6 @@ export const productHighlights = [
     title: "案件协同",
     description: "让运营、法务和品牌团队围绕同一条线索查看进展、整理材料和推进动作。",
     icon: FolderKanban,
-  },
-  {
-    title: "产品资料",
-    description: "集中了解产品定位、适用场景和能力边界，快速判断是否适合当前业务需求。",
-    icon: BookOpen,
   },
 ];
 

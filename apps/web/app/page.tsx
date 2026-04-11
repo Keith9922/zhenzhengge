@@ -33,13 +33,13 @@ export default function HomePage() {
                   进入工作台
                   <ArrowRight className="h-4 w-4" />
                 </Link>
-                <a
-                  href="#docs"
+                <Link
+                  href="/docs"
                   className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:text-ink"
                 >
-                  了解产品资料
+                  查看产品资料
                   <BookOpen className="h-4 w-4" />
-                </a>
+                </Link>
               </div>
               <div className="mt-10 grid gap-4 sm:grid-cols-3">
                 {[
@@ -135,7 +135,7 @@ export default function HomePage() {
           />
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
             {docsIndex.map((doc) => (
-              <a
+              <Link
                 key={doc.title}
                 href={doc.href}
                 className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-soft transition hover:-translate-y-1 hover:border-brand-200"
@@ -145,16 +145,8 @@ export default function HomePage() {
                   <ExternalLink className="h-4 w-4 text-slate-400" />
                 </div>
                 <p className="mt-3 text-sm leading-6 text-slate-600">{doc.summary}</p>
-              </a>
+              </Link>
             ))}
-          </div>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/docs"
-              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:text-ink"
-            >
-              打开产品资料
-            </Link>
           </div>
         </section>
 
