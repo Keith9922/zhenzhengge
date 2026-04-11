@@ -20,16 +20,20 @@
 结论：
 
 - 当前数据库是**真实可写**的
-- 当前数据库是**极简版本**
-- 当前只建了两张核心业务表：
+- 当前数据库是**最小可用业务版本**
+- 当前已经落地 5 张业务表：
   - `cases`
   - `evidence_packs`
+  - `document_drafts`
+  - `monitor_tasks`
+  - `notification_channels`
 
 ## 2. 当前已实现 ER 图
 
 ```mermaid
 erDiagram
     CASES ||--o{ EVIDENCE_PACKS : contains
+    CASES ||--o{ DOCUMENT_DRAFTS : generates
 
     CASES {
         string case_id PK
@@ -60,6 +64,44 @@ erDiagram
         string html_path
         string created_at
         string status
+    }
+
+    DOCUMENT_DRAFTS {
+        string draft_id PK
+        string case_id FK
+        string template_key
+        string title
+        string status
+        string content
+        string created_at
+        string updated_at
+        string review_comment
+        string export_path
+    }
+
+    MONITOR_TASKS {
+        string task_id PK
+        string name
+        string target_url
+        string target_type
+        string site
+        string brand_keywords_json
+        int frequency_minutes
+        int risk_threshold
+        string status
+        string created_at
+        string updated_at
+        string last_run_at
+    }
+
+    NOTIFICATION_CHANNELS {
+        string channel_id PK
+        string channel_type
+        string name
+        string target
+        boolean enabled
+        string created_at
+        string updated_at
     }
 ```
 
@@ -122,26 +164,26 @@ erDiagram
 - 角色
 - 组织
 - 模板
-- 文书草稿
 - 审核任务
-- 监控任务
-- 通知配置
 - 通知日志
 - 工作流运行记录
 - 审计日志
 
-所以当前 SQLite 只能支撑：
+所以当前 SQLite 当前能支撑：
 
 - 案件
 - 证据包
+- 文书草稿
+- 监控任务
+- 接收方式配置
 
 还不能支撑：
 
 - 权限体系
 - 审核流
-- 通知配置
-- 文书生成记录
+- 通知日志
 - 监控任务管理
+- 细粒度模板管理
 
 ## 5. 目标数据库 ER 图
 
@@ -192,17 +234,19 @@ erDiagram
 
 ## 7. 推荐的演进路线
 
-### 第一阶段已经有
+### 当前已经有
 
 - `cases`
 - `evidence_packs`
+- `document_drafts`
+- `monitor_tasks`
+- `notification_channels`
 
 ### 第二阶段建议新增
 
-- `document_templates`
-- `document_drafts`
 - `review_tasks`
 - `review_comments`
+- `notification_logs`
 
 ### 第三阶段建议新增
 
@@ -210,9 +254,6 @@ erDiagram
 - `users`
 - `roles`
 - `user_roles`
-- `monitor_tasks`
-- `notification_channels`
-- `notification_logs`
 - `workflow_runs`
 - `audit_logs`
 
@@ -220,14 +261,13 @@ erDiagram
 
 如果你说“继续开发”，数据库线建议按这个顺序补：
 
-1. `document_drafts`
-2. `review_tasks`
-3. `monitor_tasks`
-4. `notification_channels`
+1. `review_tasks`
+2. `review_comments`
+3. `notification_logs`
+4. `workflow_runs`
 5. `audit_logs`
 
 理由很简单：
 
-- 这 5 个表最直接支撑你下一步要做的功能
+- 这 5 个表最直接支撑审核闭环、通知留痕和工作流追踪
 - 不用一上来就把完整 RBAC 全部打完
-

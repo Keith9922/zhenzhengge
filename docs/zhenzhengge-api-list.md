@@ -14,18 +14,20 @@
 - FastAPI 服务可启动
 - SQLite 持久化可用
 - 案件创建、案件列表、案件详情可用
-- 证据包创建、证据包列表可用
+- 案件维度证据包列表、证据包详情可用
 - 插件 intake 接口可用
-- 文书模板列表接口可用
+- 文书模板列表可用
+- 文书草稿生成、提交审核、通过/驳回、导出可用
+- 监控任务创建、列表、启停、手动执行可用
+- 接收方式列表、创建、测试可用
 - 运行时模块状态接口可用
-- 测试和 smoke test 已经覆盖基础链路
+- 测试和 smoke test 已覆盖主链路
 
 当前仍然是 stub / 占位的能力：
 
 - Hermes 编排
 - Playwright 真实抓取
-- 通知发送
-- 文书生成
+- 大模型驱动的文书生成
 - 大模型调用
 
 所以，**后端目前是“半实装”状态**：
@@ -183,7 +185,31 @@
 }
 ```
 
-### 3.4 证据包列表
+### 3.4 案件下证据包列表
+
+- `GET /api/v1/cases/{case_id}/evidence-packs`
+
+返回体：
+
+```json
+[
+  {
+    "evidence_pack_id": "ep-0001",
+    "case_id": "case-zhzg-0003",
+    "source_url": "https://example.com/item/1",
+    "source_title": "阿波达斯商品页疑似仿冒",
+    "capture_channel": "browser-extension",
+    "note": "req-0001",
+    "hash_sha256": "xxxx",
+    "snapshot_path": "evidence/case-zhzg-0003/snapshot-0001.png",
+    "html_path": "evidence/case-zhzg-0003/page-0001.html",
+    "created_at": "2026-04-11T08:00:00+00:00",
+    "status": "captured"
+  }
+]
+```
+
+### 3.5 证据包列表
 
 - `GET /api/v1/evidence-packs`
 
@@ -196,22 +222,26 @@
 ```json
 [
   {
-    "evidence_pack_id": "evidence-pack-0001",
+    "evidence_pack_id": "ep-0001",
     "case_id": "case-zhzg-0003",
     "source_url": "https://example.com/item/1",
     "source_title": "阿波达斯商品页疑似仿冒",
     "capture_channel": "browser-extension",
     "note": "req-0001",
     "hash_sha256": "xxxx",
-    "snapshot_path": "captures/example.com_item_1.png",
-    "html_path": "captures/example.com_item_1.html",
+    "snapshot_path": "evidence/case-zhzg-0003/snapshot-0001.png",
+    "html_path": "evidence/case-zhzg-0003/page-0001.html",
     "created_at": "2026-04-11T08:00:00+00:00",
     "status": "captured"
   }
 ]
 ```
 
-### 3.5 创建证据包
+### 3.6 证据包详情
+
+- `GET /api/v1/evidence-packs/{evidence_pack_id}`
+
+### 3.7 创建证据包
 
 - `POST /api/v1/evidence-packs`
 
@@ -232,22 +262,22 @@
 ```json
 {
   "item": {
-    "evidence_pack_id": "evidence-pack-0002",
+    "evidence_pack_id": "ep-0002",
     "case_id": "case-zhzg-0001",
     "source_url": "https://example.com/item/2",
     "source_title": "疑似侵权页面",
     "capture_channel": "browser_extension",
     "note": "manual-create",
     "hash_sha256": "xxxx",
-    "snapshot_path": "captures/example.com_item_2.png",
-    "html_path": "captures/example.com_item_2.html",
+    "snapshot_path": "evidence/case-zhzg-0001/snapshot-0002.png",
+    "html_path": "evidence/case-zhzg-0001/page-0002.html",
     "created_at": "2026-04-11T08:00:00+00:00",
     "status": "captured"
   }
 }
 ```
 
-### 3.6 文书模板列表
+### 3.8 文书模板列表
 
 - `GET /api/v1/document-templates`
 
@@ -270,7 +300,47 @@
 }
 ```
 
-### 3.7 运行时模块状态
+### 3.9 文书草稿
+
+- `GET /api/v1/document-drafts`
+- `POST /api/v1/document-drafts`
+- `GET /api/v1/document-drafts/{draft_id}`
+- `POST /api/v1/document-drafts/{draft_id}/submit-review`
+- `POST /api/v1/document-drafts/{draft_id}/approve`
+- `POST /api/v1/document-drafts/{draft_id}/reject`
+- `POST /api/v1/document-drafts/{draft_id}/export`
+
+说明：
+
+- 当前草稿内容由模板服务和案件信息拼装，是真实可用的占位生成，不依赖大模型
+- 导出结果当前为 `Markdown` 文件，后续再扩到 `docx/pdf`
+
+### 3.10 监控任务
+
+- `GET /api/v1/monitor-tasks`
+- `POST /api/v1/monitor-tasks`
+- `GET /api/v1/monitor-tasks/{task_id}`
+- `POST /api/v1/monitor-tasks/{task_id}/toggle`
+- `POST /api/v1/monitor-tasks/{task_id}/run`
+
+说明：
+
+- 当前“手动执行一次监控任务”会更新任务执行时间
+- 真实巡检、抓取、比对和建案仍待后续接入
+
+### 3.11 接收方式
+
+- `GET /api/v1/notification-channels`
+- `POST /api/v1/notification-channels`
+- `POST /api/v1/notification-channels/{channel_id}/test`
+
+说明：
+
+- 当前邮件已支持真实 SMTP 发送
+- 未配置 SMTP 时会降级为 dry-run
+- 钉钉支持 webhook 调用，但前端对外文案不直接暴露渠道实现
+
+### 3.12 运行时模块状态
 
 - `GET /api/v1/runtime/modules`
 
@@ -290,8 +360,8 @@
   },
   {
     "name": "notification_adapter",
-    "status": "stub",
-    "description": "钉钉 / 邮件通知预留位"
+    "status": "degraded",
+    "description": "通知渠道已接入，可进行配置和测试；未配置 SMTP 时邮件发送会降级。"
   }
 ]
 ```
@@ -300,15 +370,12 @@
 
 以下接口**还没有在 `apps/api` 里实现**，只能作为后续开发规划，不能直接联调：
 
-- 文书草稿生成
-- 草稿详情
-- 草稿审核
-- 草稿导出
-- 监控任务增删改查
-- 通知渠道配置
 - 登录与鉴权
 - 用户与角色接口
 - 工作流状态查询
+- 审核任务独立接口
+- 通知日志接口
+- 工作流运行记录接口
 
 ## 5. 当前联调约束
 
@@ -316,9 +383,10 @@
 
 1. 只依赖“当前已实现接口”
 2. 不要假设 Hermes 已经真的调了大模型
-3. 不要假设 Playwright 已经真的保存截图文件
-4. 不要假设通知已经真的发出
-5. 文书模板页当前只能拿模板列表，不能真正生成文书
+3. 插件 intake 会真实保存 HTML 和截图文件；手工新建证据包仍只写元数据
+4. 不要假设 Playwright 已经真的补抓了页面
+5. 邮件只有在配置 SMTP 后才会真实发出
+6. 当前文书草稿为模板拼装版，不是大模型生成版
 
 ## 6. 当前真实后端与规划后端的差异
 
@@ -328,20 +396,22 @@
 | SQLite 持久化 | 已实现 | 是 | 数据会写入 `apps/api/data/zhenzhengge.db` |
 | 插件 intake | 已实现 | 是 | 可创建案件和证据包 |
 | 案件查询 | 已实现 | 是 | 列表与详情都可用 |
-| 证据包创建 | 已实现 | 是 | 但文件路径是模拟生成 |
+| 证据包创建 | 已实现 | 是 | intake 路径会真实写入 HTML 与截图 |
+| 文书草稿 | 已实现 | 是 | 当前是模板拼装与 Markdown 导出 |
+| 监控任务 | 已实现 | 是 | 当前是任务管理与执行留痕 |
+| 接收方式 | 已实现 | 是 | 支持列表、创建、测试 |
 | Hermes 编排 | stub | 否 | 只有排队结果，没有真实执行 |
 | Playwright 抓取 | stub | 否 | 只返回预设路径 |
-| 通知发送 | stub | 否 | 不会真正发钉钉或邮件 |
-| 文书生成 | 未实现 | 否 | 只有模板列表 |
+| 通知发送 | 部分实现 | 部分 | SMTP 配置后邮件可真实发送 |
+| 文书生成 | 部分实现 | 部分 | 当前不依赖 LLM，只做模板拼装 |
 | 鉴权/RBAC | 未实现 | 否 | 还没有登录和角色控制 |
 
 ## 7. 建议下一步
 
 如果你说“继续开发”，接口线下一步建议按这个顺序做：
 
-1. 文书草稿生成接口
-2. 证据包详情接口
-3. 监控任务接口
-4. 通知配置接口
-5. 鉴权与角色接口
-
+1. 真实 Playwright 补抓与监控执行链
+2. 证据包详情与草稿详情前端接线
+3. 审核任务与通知日志接口
+4. 鉴权与角色接口
+5. LLM 文书生成与案件摘要接口
