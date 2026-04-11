@@ -78,7 +78,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
               ))
             ) : (
               <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-5 text-sm leading-6 text-slate-600">
-                当前接口尚未返回独立证据包，已回退到基础证据目录展示。
+                当前暂未拆分出独立证据包，先展示基础证据目录，方便继续补充和整理。
               </div>
             )}
           </div>

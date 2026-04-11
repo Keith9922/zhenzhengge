@@ -2,9 +2,9 @@ import Link from "next/link";
 import { LogoFull } from "@/components/logo";
 
 const navItems = [
-  { href: "#workflow", label: "功能链路" },
-  { href: "#docs", label: "文档入口" },
-  { href: "#workspace", label: "工作台" },
+  { href: "/#workflow", label: "功能链路" },
+  { href: "/#docs", label: "文档入口" },
+  { href: "/#workspace", label: "工作台" },
 ];
 
 export function SiteHeader() {

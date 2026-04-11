@@ -4,7 +4,7 @@ import { getCases } from "@/lib/cases";
 export const dynamic = "force-dynamic";
 
 export default async function CasesPage() {
-  const { items, source } = await getCases();
+  const { items } = await getCases();
 
   return (
     <section className="space-y-6">
@@ -12,7 +12,7 @@ export default async function CasesPage() {
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">案件</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">案件列表</h1>
         <p className="mt-4 text-sm leading-7 text-slate-600">
-          优先从后端 API 读取案件列表，API 不可用时会优雅降级到 mock 数据。当前数据源：{source === "api" ? "后端 API" : "mock"}
+          这里汇总当前线索和案件进展，便于团队快速查看状态、证据情况和下一步处理建议。
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">

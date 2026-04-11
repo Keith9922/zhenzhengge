@@ -1,9 +1,9 @@
 import Link from "next/link";
 
 const stats = [
-  { label: "案件状态", value: "12" },
+  { label: "待处理线索", value: "12" },
   { label: "证据包", value: "24" },
-  { label: "待审核文书", value: "3" },
+  { label: "材料草稿", value: "3" },
 ];
 
 export default function WorkspaceHomePage() {
@@ -13,7 +13,7 @@ export default function WorkspaceHomePage() {
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">总览</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">证证鸽工作台</h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600">
-          这里是案件、证据包、模板和审核流的统一操作中心。当前版本先提供骨架和导航，后续再接入真实接口和数据。
+          这里集中查看案件、证据包、模板和处理进展，帮助团队围绕同一条线索完成留证、整理和后续推进。
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link href="/workspace/cases" className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white">

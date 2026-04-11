@@ -1,21 +1,22 @@
 import Link from "next/link";
-import { ArrowRight, ExternalLink } from "lucide-react";
+import { ExternalLink } from "lucide-react";
 import { SiteHeader } from "@/components/site-header";
-import { publicDocEntries } from "@/lib/docs";
+import { getDocSourceUrl, internalDocEntries } from "@/lib/docs";
+import { getRepoUrl } from "@/lib/env";
 
-export default function DocsPage() {
+export default function InternalDocsPage() {
   return (
     <div className="min-h-screen">
       <SiteHeader />
       <main className="mx-auto max-w-5xl px-6 py-16 lg:px-8">
         <div className="rounded-[2rem] border border-white/70 bg-white/80 p-8 shadow-soft">
-          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">资料中心</p>
-          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-ink">产品资料</h1>
+          <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">内部资料</p>
+          <h1 className="mt-4 text-4xl font-semibold tracking-tight text-ink">开发与实施基线</h1>
           <p className="mt-4 max-w-3xl text-base leading-7 text-slate-600">
-            这里汇总了证证鸽对外展示所需的核心资料，帮助你快速理解产品价值、适用场景与当前能力边界。
+            这里保留 PRD、技术选型和项目资料包等内部材料，用于产品、设计、开发和联调时对齐，不对外展示。
           </p>
           <div className="mt-8 grid gap-4 md:grid-cols-3">
-            {publicDocEntries.map((doc) => (
+            {internalDocEntries.map((doc) => (
               <article key={doc.title} className="rounded-3xl border border-slate-200 bg-slate-50 p-5 transition hover:-translate-y-1 hover:border-brand-200">
                 <Link href={doc.href} className="block">
                   <div className="flex items-center justify-between gap-3">
@@ -24,6 +25,15 @@ export default function DocsPage() {
                   </div>
                   <p className="mt-2 text-sm leading-6 text-slate-600">{doc.summary}</p>
                 </Link>
+                <a
+                  href={getDocSourceUrl(doc.sourcePath)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-4 inline-flex items-center gap-1 text-xs font-medium text-brand-700"
+                >
+                  查看源文件
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
               </article>
             ))}
           </div>
@@ -31,13 +41,15 @@ export default function DocsPage() {
             <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-brand-700 hover:text-brand-800">
               返回主站
             </Link>
-            <Link
-              href="/workspace"
+            <a
+              href={getRepoUrl()}
+              target="_blank"
+              rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:text-ink"
             >
-              进入工作台
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+              打开源码仓库
+              <ExternalLink className="h-4 w-4" />
+            </a>
           </div>
         </div>
       </main>

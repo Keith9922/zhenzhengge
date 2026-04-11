@@ -96,6 +96,30 @@ type ApiEvidencePackRecord = {
   evidenceItems?: unknown;
 };
 
+const statusLabelMap: Record<string, string> = {
+  open: "待处理",
+  monitoring: "监测中",
+  triaged: "已研判",
+  drafting: "材料整理中",
+  review: "审核中",
+  archived: "已归档",
+};
+
+const riskLabelMap: Record<string, string> = {
+  high: "高风险",
+  medium: "中风险",
+  low: "低风险",
+};
+
+const platformLabelMap: Record<string, string> = {
+  taobao: "淘宝",
+  tmall: "天猫",
+  pinduoduo: "拼多多",
+  jd: "京东",
+  "browser-extension": "网页取证",
+  "brand-site": "品牌官网",
+};
+
 const mockCases: CaseDetail[] = [
   {
     id: "case-adidas-aaodasis",
@@ -133,7 +157,7 @@ const mockCases: CaseDetail[] = [
       "已生成证据包，等待法务复核。",
     ],
     evidenceItems: ["URL", "页面标题", "全页截图", "HTML", "抓取时间", "哈希值", "图片链接", "操作日志"],
-    nextActions: ["生成律师函初稿", "推送钉钉通知", "导出证据目录"],
+    nextActions: ["生成律师函初稿", "整理案件说明", "导出证据目录"],
   },
   {
     id: "case-brand-homepage-copy",
@@ -182,17 +206,17 @@ const mockCases: CaseDetail[] = [
       },
       {
         id: "pack-jd-002",
-        title: "通知待办包",
-        source: "推送任务",
+        title: "进展整理包",
+        source: "案件记录",
         capturedAt: "2026-04-10 20:12",
         artifactCount: 3,
-        summary: "包含待办信息、通知目标和处理状态。",
-        items: ["邮件通知", "钉钉通知", "处理状态"],
+        summary: "包含当前处理状态、补充说明和后续动作。",
+        items: ["处理状态", "补充说明", "后续动作"],
       },
     ],
-    notes: ["图文混用，需拆分识别文字与图片。", "风险中等偏高。", "后续可进入投诉材料阶段。"],
+    notes: ["图文混用，需拆分识别文字与图片。", "风险中等偏高。", "后续可进入投诉材料准备阶段。"],
     evidenceItems: ["URL", "页面标题", "截图", "文本", "图片哈希", "抓取时间"],
-    nextActions: ["发送邮箱通知", "生成平台投诉函", "等待审核"],
+    nextActions: ["整理案件说明", "生成平台投诉函", "等待审核确认"],
   },
 ];
 
@@ -233,6 +257,21 @@ function toStringArray(value: unknown): string[] {
   }
 
   return value.map((entry) => toStringValue(entry)).filter(Boolean);
+}
+
+function toStatusLabel(value: unknown, fallback = "待处理") {
+  const normalized = toStringValue(value).toLowerCase();
+  return statusLabelMap[normalized] || toStringValue(value, fallback);
+}
+
+function toRiskLabel(value: unknown, fallback = "待评估") {
+  const normalized = toStringValue(value).toLowerCase();
+  return riskLabelMap[normalized] || toStringValue(value, fallback);
+}
+
+function toPlatformLabel(value: unknown, fallback = "公开网页") {
+  const normalized = toStringValue(value).toLowerCase();
+  return platformLabelMap[normalized] || toStringValue(value, fallback);
 }
 
 function buildEvidencePacksEndpoint(caseId: string, variant: "path" | "query" = "path") {
@@ -318,12 +357,11 @@ function extractCaseDetail(payload: unknown): CaseDetail | undefined {
 }
 
 function normalizeApiEvidencePack(record: ApiEvidencePackRecord, index = 0): EvidencePackSummary {
-  const source = toStringValue(
+  const source = toPlatformLabel(
     record.capture_channel || record.captureChannel || record.source || record.platform,
     "未知来源",
   );
   const items = toStringArray(record.items || record.evidence_items || record.evidenceItems);
-  const artifactCount = toNumberValue(record.artifact_count ?? record.artifactCount, items.length);
   const title = toStringValue(record.title || record.name || record.source_title || record.sourceTitle, `${source}证据包`);
   const capturedAt = toStringValue(
     record.created_at ||
@@ -336,38 +374,40 @@ function normalizeApiEvidencePack(record: ApiEvidencePackRecord, index = 0): Evi
   );
   const summary = toStringValue(
     record.summary,
-    `${source} · ${artifactCount || items.length || index + 1} 个材料`,
+    `${source} · ${toNumberValue(record.artifact_count ?? record.artifactCount, items.length || index + 1) || items.length || index + 1} 个材料`,
   );
+  const finalItems =
+    items.length
+      ? items
+      : [
+          toStringValue(record.source_title || record.sourceTitle, "页面标题"),
+          source,
+          "页面截图",
+          "抓取时间",
+        ];
+  const artifactCount = toNumberValue(record.artifact_count ?? record.artifactCount, finalItems.length);
 
   return {
     id: toStringValue(record.evidence_pack_id || record.evidencePackId || record.id, `evidence-pack-${index + 1}`),
     title,
     source,
     capturedAt,
-    artifactCount: artifactCount || items.length || 0,
+    artifactCount: artifactCount || finalItems.length || 0,
     summary,
-    items:
-      items.length
-        ? items
-        : [
-            toStringValue(record.source_title || record.sourceTitle, "页面标题"),
-            source,
-            "页面截图",
-            "抓取时间",
-          ],
+    items: finalItems,
   };
 }
 
 function normalizeApiCaseSummary(record: ApiCaseRecord, fallbackId = ""): CaseSummary {
   const id = toStringValue(record.case_id || record.caseId || record.id, fallbackId);
-  const platform = toStringValue(record.platform, "未知平台");
+  const platform = toPlatformLabel(record.platform, "公开网页");
   const updatedAt = toStringValue(record.updated_at || record.updatedAt, "待更新");
-  const rawStatus = toStringValue(record.status, "待复核");
-  const riskLevel = toStringValue(record.risk_level ?? record.riskLevel ?? record.risk_score ?? record.riskScore, "未知");
+  const rawStatus = toStatusLabel(record.status, "待处理");
+  const riskLevel = toRiskLabel(record.risk_level ?? record.riskLevel ?? record.risk_score ?? record.riskScore, "待评估");
   const title = toStringValue(record.title, record.brand_name || record.brandName || `${platform}案件`);
   const summary = toStringValue(
     record.description || record.summary,
-    `来源：${platform} · 风险等级：${riskLevel} · 当前状态：${rawStatus}`,
+    `来源：${platform} · 风险等级：${riskLevel} · 当前进展：${rawStatus}`,
   );
 
   return {
@@ -382,7 +422,7 @@ function normalizeApiCaseSummary(record: ApiCaseRecord, fallbackId = ""): CaseSu
 
 function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDetail {
   const summary = normalizeApiCaseSummary(record, fallbackId);
-  const riskLevel = toStringValue(record.risk_level ?? record.riskLevel ?? record.risk_score ?? record.riskScore, "0");
+  const riskLevel = toRiskLabel(record.risk_level ?? record.riskLevel ?? record.risk_score ?? record.riskScore, "待评估");
   const riskScore = toNumberValue(record.risk_score ?? record.riskScore ?? record.risk_level ?? record.riskLevel, 0);
   const notes =
     Array.isArray(record.notes) && record.notes.length
@@ -390,7 +430,7 @@ function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDet
       : [
           `平台：${summary.source}`,
           `风险等级：${riskLevel}`,
-          `请结合证据包和人工复核结果继续处理。`,
+          `建议结合现有证据和业务判断继续推进。`,
         ];
   const evidenceItems =
     Array.isArray(record.evidence_items) && record.evidence_items.length
@@ -403,7 +443,7 @@ function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDet
       ? record.next_actions
       : Array.isArray(record.nextActions) && record.nextActions.length
         ? record.nextActions
-        : ["生成文书初稿", "推送通知", "人工复核"];
+        : ["整理案件材料", "补充证据", "人工确认"];
 
   return {
     ...summary,

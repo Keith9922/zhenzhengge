@@ -19,7 +19,7 @@ export default function TemplatesPage() {
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">模板</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">文书模板</h1>
-        <p className="mt-4 text-sm leading-7 text-slate-600">第一阶段以固定模板为主，后续再接入案件变量和审核流。</p>
+        <p className="mt-4 text-sm leading-7 text-slate-600">围绕常见处置场景提供标准化模板，便于快速整理说明材料和初稿。</p>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {templates.map((item) => (

@@ -1,6 +1,5 @@
-import { BookOpen, Bot, FileText, ScanSearch, ShieldCheck, Sparkles } from "lucide-react";
-import { docEntries } from "@/lib/docs";
-import { getRepoUrl } from "@/lib/env";
+import { BookOpen, FileText, FolderKanban, ScanSearch, ShieldCheck, Sparkles } from "lucide-react";
+import { publicDocEntries } from "@/lib/docs";
 
 export const productHighlights = [
   {
@@ -9,28 +8,28 @@ export const productHighlights = [
     icon: ScanSearch,
   },
   {
-    title: "自动固证",
-    description: "服务端补抓页面、截图、HTML、时间戳与哈希，沉淀为可追踪的证据包。",
+    title: "证据归档",
+    description: "把页面截图、文本与关键信息沉淀成可复查、可管理的证据包。",
     icon: ShieldCheck,
   },
   {
-    title: "风险分析",
-    description: "对商标、图样和命名做近似预筛，输出高风险线索与建议动作。",
+    title: "风险研判",
+    description: "围绕近似命名、冒用展示和品牌混淆等公开线索提供辅助研判。",
     icon: Sparkles,
   },
   {
-    title: "文书辅助",
-    description: "基于案件事实和模板生成初稿，进入法务审核流程后再导出正式版本。",
+    title: "材料辅助",
+    description: "围绕常见处置场景整理说明材料和初稿，降低后续沟通与处理成本。",
     icon: FileText,
   },
   {
-    title: "消息推送",
-    description: "通过钉钉或邮箱把案件摘要、证据链接和下一步动作推送给负责人。",
-    icon: Bot,
+    title: "案件协同",
+    description: "让运营、法务和品牌团队围绕同一条线索查看进展、整理材料和推进动作。",
+    icon: FolderKanban,
   },
   {
-    title: "文档入口",
-    description: "集中查阅 PRD、技术选型、开源清单和项目资料包，作为开发对齐基线。",
+    title: "产品资料",
+    description: "集中了解产品定位、适用场景和能力边界，快速判断是否适合当前业务需求。",
     icon: BookOpen,
   },
 ];
@@ -38,35 +37,33 @@ export const productHighlights = [
 export const workflowSteps = [
   {
     title: "发现线索",
-    detail: "用户在浏览器中发现疑似侵权页面，或者由后台巡检发现更新。",
+    detail: "用户在公开网页中发现疑似侵权内容，或对指定目标持续观察后发现新线索。",
   },
   {
-    title: "一键取证",
-    detail: "插件采集 URL、标题、截图和备注，服务端补抓完整页面材料。",
+    title: "发起取证",
+    detail: "围绕当前页面留存截图、页面信息和关键说明，形成可管理的案件入口。",
   },
   {
-    title: "分析评分",
-    detail: "系统输出相似度、风险等级、命中原因和建议动作。",
+    title: "证据归档",
+    detail: "系统把线索整理为结构化证据包，方便后续查看、比对和推进处理。",
   },
   {
-    title: "推送通知",
-    detail: "钉钉或邮箱立即收到案件摘要与证据包入口。",
+    title: "风险研判",
+    detail: "结合近似命名、冒用展示和页面内容，给出辅助判断与处理建议。",
   },
   {
-    title: "生成初稿",
-    detail: "选择模板后一键生成律师函、投诉函或举报材料初稿。",
+    title: "材料准备",
+    detail: "围绕常见处置场景整理说明材料和初稿，帮助团队更快进入下一步动作。",
   },
   {
-    title: "人工审核",
-    detail: "法务审核后再导出正式材料，保留版本和审计日志。",
+    title: "人工确认",
+    detail: "最终由业务或法务人员确认判断与动作，保证输出稳健、可控。",
   },
 ];
 
 export const docsIndex = [
-  ...docEntries,
+  ...publicDocEntries,
 ];
-
-export { getRepoUrl };
 
 export const workspaceNav = [
   { href: "/workspace", label: "总览" },
