@@ -35,14 +35,23 @@ type ApiCaseRecord = {
   case_id?: string;
   caseId?: string;
   id?: string;
+  brand_name?: string;
+  brandName?: string;
+  suspect_name?: string;
+  suspectName?: string;
   platform?: string;
+  monitoring_scope?: string;
+  monitoringScope?: string;
   updated_at?: string;
   updatedAt?: string;
   status?: string;
   risk_level?: string | number;
   riskLevel?: string | number;
+  risk_score?: string | number;
+  riskScore?: string | number;
   title?: string;
   summary?: string;
+  description?: string;
   target?: string;
   evidence_count?: string | number;
   evidenceCount?: string | number;
@@ -320,13 +329,13 @@ function normalizeApiEvidencePack(record: ApiEvidencePackRecord, index = 0): Evi
 
 function normalizeApiCaseSummary(record: ApiCaseRecord, fallbackId = ""): CaseSummary {
   const id = toStringValue(record.case_id || record.caseId || record.id, fallbackId);
-  const platform = toStringValue(record.platform, "未知平台");
+  const platform = toStringValue(record.monitoring_scope || record.monitoringScope || record.platform, "未知平台");
   const updatedAt = toStringValue(record.updated_at || record.updatedAt, "待更新");
   const rawStatus = toStringValue(record.status, "待复核");
-  const riskLevel = toStringValue(record.risk_level ?? record.riskLevel, "未知");
-  const title = toStringValue(record.title, `${platform}案件`);
+  const riskLevel = toStringValue(record.risk_score ?? record.riskScore ?? record.risk_level ?? record.riskLevel, "未知");
+  const title = toStringValue(record.title, record.brand_name || record.brandName || `${platform}案件`);
   const summary = toStringValue(
-    record.summary,
+    record.description || record.summary,
     `来源：${platform} · 风险等级：${riskLevel} · 当前状态：${rawStatus}`,
   );
 
@@ -342,9 +351,8 @@ function normalizeApiCaseSummary(record: ApiCaseRecord, fallbackId = ""): CaseSu
 
 function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDetail {
   const summary = normalizeApiCaseSummary(record, fallbackId);
-  const riskLevel = toStringValue(record.risk_level ?? record.riskLevel, "0");
-  const riskScore = toNumberValue(record.risk_level ?? record.riskLevel, 0);
-  const evidenceCount = toNumberValue(record.evidence_count ?? record.evidenceCount, 0);
+  const riskLevel = toStringValue(record.risk_score ?? record.riskScore ?? record.risk_level ?? record.riskLevel, "0");
+  const riskScore = toNumberValue(record.risk_score ?? record.riskScore ?? record.risk_level ?? record.riskLevel, 0);
   const notes =
     Array.isArray(record.notes) && record.notes.length
       ? record.notes
@@ -368,9 +376,17 @@ function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDet
 
   return {
     ...summary,
-    target: toStringValue(record.target, summary.source),
+    target: toStringValue(
+      record.brand_name ||
+        record.brandName ||
+        record.suspect_name ||
+        record.suspectName ||
+        record.target ||
+        summary.source,
+      summary.source,
+    ),
     riskScore,
-    evidenceCount,
+    evidenceCount: toNumberValue(record.evidence_count ?? record.evidenceCount, 0),
     evidencePacks: [],
     notes,
     evidenceItems,
@@ -386,11 +402,12 @@ function mergeCaseDetailWithEvidencePacks(
   const flattenedItems = mergedPacks.length
     ? mergedPacks.flatMap((pack) => pack.items).filter(Boolean)
     : detail.evidenceItems;
+  const evidenceCount = mergedPacks.reduce((count, pack) => count + pack.artifactCount, 0) || detail.evidenceCount;
 
   return {
     ...detail,
     evidencePacks: mergedPacks,
-    evidenceCount: mergedPacks.length || detail.evidenceCount,
+    evidenceCount,
     evidenceItems: flattenedItems.length ? Array.from(new Set(flattenedItems)) : detail.evidenceItems,
   };
 }

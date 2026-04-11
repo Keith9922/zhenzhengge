@@ -51,8 +51,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           </div>
           <div className="mt-4 space-y-4">
             {item.evidencePacks.length ? (
-              item.evidencePacks.map((pack) => (
-                <article key={pack.id} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              item.evidencePacks.map((pack, packIndex) => (
+                <article key={`${pack.id || "evidence-pack"}-${packIndex}`} className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div>
                       <h3 className="text-base font-semibold text-ink">{pack.title}</h3>
@@ -66,8 +66,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                   </div>
                   <p className="mt-3 text-sm leading-6 text-slate-600">{pack.summary}</p>
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {pack.items.map((entry) => (
-                      <span key={entry} className="rounded-full bg-white px-3 py-1 text-xs text-slate-700">
+                    {pack.items.map((entry, itemIndex) => (
+                      <span key={`${pack.id || "evidence-pack"}-${itemIndex}-${entry}`} className="rounded-full bg-white px-3 py-1 text-xs text-slate-700">
                         {entry}
                       </span>
                     ))}
@@ -85,8 +85,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
         <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
           <h2 className="text-lg font-semibold text-ink">处理建议</h2>
           <div className="mt-4 space-y-3">
-            {item.nextActions.map((action) => (
-              <div key={action} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            {item.nextActions.map((action, actionIndex) => (
+              <div key={`next-action-${actionIndex}-${action}`} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
                 {action}
               </div>
             ))}
@@ -94,8 +94,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
           <div className="mt-6 rounded-3xl border border-slate-200 bg-slate-50 p-5">
             <h3 className="text-sm font-semibold text-ink">研判要点</h3>
             <ul className="mt-3 space-y-2 text-sm leading-6 text-slate-600">
-              {item.notes.map((note) => (
-                <li key={note} className="flex gap-2">
+              {item.notes.map((note, noteIndex) => (
+                <li key={`note-${noteIndex}-${note}`} className="flex gap-2">
                   <span className="mt-2 h-1.5 w-1.5 rounded-full bg-brand-500" />
                   <span>{note}</span>
                 </li>
@@ -111,8 +111,8 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
       <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">基础证据目录</h2>
         <ul className="mt-4 grid gap-3 md:grid-cols-3">
-          {item.evidenceItems.map((entry) => (
-            <li key={entry} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          {item.evidenceItems.map((entry, entryIndex) => (
+            <li key={`evidence-item-${entryIndex}-${entry}`} className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
               {entry}
             </li>
           ))}
