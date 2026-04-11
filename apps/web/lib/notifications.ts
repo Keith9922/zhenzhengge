@@ -1,4 +1,5 @@
 import { fetchJsonOrUndefined } from "@/lib/api";
+import { buildDemoDataNote, type ListFetchResult } from "@/lib/data-source";
 
 export type NotificationChannelItem = {
   id: string;
@@ -60,16 +61,16 @@ function normalizeChannel(record: ApiNotificationChannel, index = 0): Notificati
   };
 }
 
-export async function getNotificationChannels() {
+export async function getNotificationChannels(): Promise<ListFetchResult<NotificationChannelItem>> {
   const payload = await fetchJsonOrUndefined<ApiNotificationList>("/notification-channels");
   const items = payload?.items;
 
   if (!items?.length) {
-    return { items: mockChannels, source: "mock" as const };
+    return { items: mockChannels, source: "mock", note: buildDemoDataNote("接收方式") };
   }
 
   return {
     items: items.map((item, index) => normalizeChannel(item, index)),
-    source: "api" as const,
+    source: "api",
   };
 }

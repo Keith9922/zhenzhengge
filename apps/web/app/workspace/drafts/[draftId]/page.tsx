@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { DraftActions } from "@/components/workspace/draft-actions";
 import { getDraftById } from "@/lib/drafts";
 
@@ -11,7 +12,7 @@ type DraftDetailPageProps = {
 
 export default async function DraftDetailPage({ params }: DraftDetailPageProps) {
   const { draftId } = await params;
-  const item = await getDraftById(draftId);
+  const { item, source, note } = await getDraftById(draftId);
 
   if (!item) {
     notFound();
@@ -19,6 +20,7 @@ export default async function DraftDetailPage({ params }: DraftDetailPageProps) 
 
   return (
     <section className="space-y-6">
+      <DataSourceBanner source={source} label="草稿详情" note={note} />
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>

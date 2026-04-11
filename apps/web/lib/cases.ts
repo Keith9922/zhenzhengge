@@ -1,4 +1,5 @@
 import { getApiV1BaseUrl } from "@/lib/env";
+import { buildDemoDataNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
 
 export type CaseStatus = string;
 
@@ -483,10 +484,10 @@ function mergeCaseDetailWithEvidencePacks(
   };
 }
 
-export async function getCases() {
+export async function getCases(): Promise<ListFetchResult<CaseSummary>> {
   const endpoint = buildCasesEndpoint();
   if (!endpoint) {
-    return { items: mockCases, source: "mock" as const };
+    return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
   }
 
   try {
@@ -498,7 +499,7 @@ export async function getCases() {
     }).finally(() => clearTimeout(timeout));
 
     if (!response.ok) {
-      return { items: mockCases, source: "mock" as const };
+      return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
     }
 
     const payload: unknown = await response.json();
@@ -508,12 +509,12 @@ export async function getCases() {
     });
 
     if (!items.length) {
-      return { items: mockCases, source: "mock" as const };
+      return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
     }
 
-    return { items, source: "api" as const };
+    return { items, source: "api" };
   } catch {
-    return { items: mockCases, source: "mock" as const };
+    return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
   }
 }
 
@@ -572,10 +573,10 @@ async function fetchApiCaseDetail(caseId: string) {
   return mergeCaseDetailWithEvidencePacks(detail, evidencePacks.length ? evidencePacks : inlinePacks);
 }
 
-export async function getCaseById(caseId: string) {
+export async function getCaseById(caseId: string): Promise<DetailFetchResult<CaseDetail>> {
   const apiDetail = await fetchApiCaseDetail(caseId);
   if (apiDetail) {
-    return apiDetail;
+    return { item: apiDetail, source: "api" };
   }
 
   const endpoint = buildCasesEndpoint(`cases/${encodeURIComponent(caseId)}`);
@@ -584,14 +585,17 @@ export async function getCaseById(caseId: string) {
       const payload = await fetchJson(endpoint);
       const item = extractCaseDetail(payload);
       if (item) {
-        return item;
+        return { item, source: "api" };
       }
     } catch {
       // fall back to mock
     }
   }
 
-  return mockCases.find((item) => normalize(item.id) === normalize(caseId) || normalize(item.title) === normalize(caseId));
+  const item = mockCases.find((record) => normalize(record.id) === normalize(caseId) || normalize(record.title) === normalize(caseId));
+  return item
+    ? { item, source: "mock", note: buildDemoDataNote("案件详情") }
+    : { source: "error", note: "未找到对应案件，当前无法展示真实数据。" };
 }
 
 export const mockCaseSummaries: CaseSummary[] = mockCases.map((item) => ({

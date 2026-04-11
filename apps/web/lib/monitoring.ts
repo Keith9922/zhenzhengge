@@ -1,4 +1,5 @@
 import { fetchJsonOrUndefined } from "@/lib/api";
+import { buildDemoDataNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
 
 export type MonitorTaskItem = {
   id: string;
@@ -61,25 +62,28 @@ function normalizeTask(record: ApiMonitorTask, index = 0): MonitorTaskItem {
   };
 }
 
-export async function getMonitorTasks() {
+export async function getMonitorTasks(): Promise<ListFetchResult<MonitorTaskItem>> {
   const payload = await fetchJsonOrUndefined<ApiMonitorTaskList>("/monitor-tasks");
   const items = payload?.items;
 
   if (!items?.length) {
-    return { items: mockTasks, source: "mock" as const };
+    return { items: mockTasks, source: "mock", note: buildDemoDataNote("监控任务") };
   }
 
   return {
     items: items.map((item, index) => normalizeTask(item, index)),
-    source: "api" as const,
+    source: "api",
   };
 }
 
-export async function getMonitorTask(taskId: string) {
+export async function getMonitorTask(taskId: string): Promise<DetailFetchResult<MonitorTaskItem>> {
   const payload = await fetchJsonOrUndefined<ApiMonitorTask>(`/monitor-tasks/${encodeURIComponent(taskId)}`);
   if (!payload) {
-    return mockTasks.find((item) => item.id === taskId);
+    const item = mockTasks.find((record) => record.id === taskId);
+    return item
+      ? { item, source: "mock", note: buildDemoDataNote("监控任务详情") }
+      : { source: "error", note: "未找到对应监控任务，当前无法展示真实数据。" };
   }
 
-  return normalizeTask(payload);
+  return { item: normalizeTask(payload), source: "api" };
 }

@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { getEvidencePacks } from "@/lib/evidence-packs";
+import { DataSourceBanner } from "@/components/data-source-banner";
 
 export const dynamic = "force-dynamic";
 
 export default async function EvidencePacksPage() {
-  const { items } = await getEvidencePacks();
+  const { items, source, note } = await getEvidencePacks();
 
   return (
     <section className="space-y-6">
+      <DataSourceBanner source={source} label="证据包列表" note={note} />
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">证据包</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">证据包列表</h1>

@@ -1,13 +1,15 @@
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { MonitoringConsole } from "@/components/workspace/monitoring-console";
 import { getMonitorTasks } from "@/lib/monitoring";
 
 export const dynamic = "force-dynamic";
 
 export default async function MonitoringPage() {
-  const { items } = await getMonitorTasks();
+  const { items, source, note } = await getMonitorTasks();
 
   return (
     <section className="space-y-6">
+      <DataSourceBanner source={source} label="监控任务" note={note} />
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">监控</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">监控任务</h1>

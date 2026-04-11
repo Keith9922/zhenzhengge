@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DataSourceBanner } from "@/components/data-source-banner";
+import { EvidencePackPreview } from "@/components/workspace/evidence-pack-preview";
 import { getEvidencePackById } from "@/lib/evidence-packs";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +12,7 @@ type EvidencePackDetailPageProps = {
 
 export default async function EvidencePackDetailPage({ params }: EvidencePackDetailPageProps) {
   const { packId } = await params;
-  const item = await getEvidencePackById(packId);
+  const { item, source, note } = await getEvidencePackById(packId);
 
   if (!item) {
     notFound();
@@ -18,6 +20,7 @@ export default async function EvidencePackDetailPage({ params }: EvidencePackDet
 
   return (
     <section className="space-y-6">
+      <DataSourceBanner source={source} label="证据包详情" note={note} />
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -36,13 +39,15 @@ export default async function EvidencePackDetailPage({ params }: EvidencePackDet
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">来源地址</p>
-          <p className="mt-2 break-all text-sm font-medium text-ink">{item.source}</p>
+          <p className="mt-2 break-all text-sm font-medium text-ink">{item.sourceUrl || item.source}</p>
         </div>
         <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
           <p className="text-sm text-slate-500">采集时间</p>
           <p className="mt-2 text-lg font-semibold text-ink">{item.capturedAt}</p>
         </div>
       </div>
+
+      <EvidencePackPreview item={item} />
 
       <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">归档内容</h2>

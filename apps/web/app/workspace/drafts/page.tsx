@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { DraftCreateForm } from "@/components/workspace/draft-create-form";
 import { getDrafts } from "@/lib/drafts";
 
@@ -11,10 +12,11 @@ type DraftsPageProps = {
 export default async function DraftsPage({ searchParams }: DraftsPageProps) {
   const params = searchParams ? await searchParams : undefined;
   const caseId = params?.caseId;
-  const { items } = await getDrafts(caseId);
+  const { items, source, note } = await getDrafts(caseId);
 
   return (
     <section className="space-y-6">
+      <DataSourceBanner source={source} label="草稿列表" note={note} />
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">草稿</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">材料草稿</h1>

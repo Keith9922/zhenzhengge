@@ -1,13 +1,15 @@
 import Link from "next/link";
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { getCases } from "@/lib/cases";
 
 export const dynamic = "force-dynamic";
 
 export default async function CasesPage() {
-  const { items } = await getCases();
+  const { items, source, note } = await getCases();
 
   return (
     <section className="space-y-6">
+      <DataSourceBanner source={source} label="案件列表" note={note} />
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">案件</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">案件列表</h1>

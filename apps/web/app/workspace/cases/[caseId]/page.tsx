@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { DataSourceBanner } from "@/components/data-source-banner";
 import { getCaseById } from "@/lib/cases";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ type CaseDetailPageProps = {
 
 export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const { caseId } = await params;
-  const item = await getCaseById(caseId);
+  const { item, source, note } = await getCaseById(caseId);
 
   if (!item) {
     notFound();
@@ -18,6 +19,7 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
 
   return (
     <section className="space-y-6">
+      <DataSourceBanner source={source} label="案件详情" note={note} />
       <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
