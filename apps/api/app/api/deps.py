@@ -2,6 +2,7 @@ from fastapi import Request
 
 from app.services.cases import CaseService
 from app.services.evidence import EvidenceService
+from app.services.intake import IntakeService
 from app.services.hermes import HermesOrchestrator
 from app.services.notifications import NotificationAdapter
 from app.services.playwright import PlaywrightWorker
@@ -31,3 +32,6 @@ def get_playwright_worker(request: Request) -> PlaywrightWorker:
 def get_notification_adapter(request: Request) -> NotificationAdapter:
     return request.app.state.services["notifications"]
 
+
+def get_intake_service(request: Request) -> IntakeService:
+    return request.app.state.services["intake"]

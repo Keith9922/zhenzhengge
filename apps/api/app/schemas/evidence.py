@@ -11,6 +11,19 @@ class EvidencePackCreateRequest(BaseModel):
     note: str | None = None
 
 
+class EvidencePackCreateByIntakeRequest(BaseModel):
+    title: str
+    brand_name: str
+    suspect_name: str
+    platform: str
+    source_url: HttpUrl
+    source_title: str
+    description: str = ""
+    note: str | None = None
+    monitoring_scope: list[str] = Field(default_factory=list)
+    tags: list[str] = Field(default_factory=list)
+
+
 class EvidencePackRecord(BaseModel):
     evidence_pack_id: str
     case_id: str
@@ -27,4 +40,3 @@ class EvidencePackRecord(BaseModel):
 
 class EvidencePackResponse(BaseModel):
     item: EvidencePackRecord
-

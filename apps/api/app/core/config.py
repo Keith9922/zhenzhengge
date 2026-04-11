@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     enable_docs: bool = True
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
+    cors_origin_regex: str = r"^chrome-extension://.*$|^http://localhost:(3000|3001)$|^http://127\.0\.0\.1:(3000|3001)$"
     service_tag: str = "zhenzhengge-api"
 
     model_config = SettingsConfigDict(
@@ -27,4 +28,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

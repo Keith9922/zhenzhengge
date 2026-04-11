@@ -35,6 +35,24 @@ class EvidenceService:
         self._items.append(record)
         return record
 
+    def create_pack_for_case(
+        self,
+        *,
+        case_id: str,
+        source_url: str,
+        source_title: str,
+        note: str | None = None,
+        capture_channel: str = "browser_extension",
+    ) -> EvidencePackRecord:
+        payload = EvidencePackCreateRequest(
+            case_id=case_id,
+            source_url=source_url,
+            source_title=source_title,
+            capture_channel=capture_channel,
+            note=note,
+        )
+        return self.create_pack(payload)
+
     def list_packs(self, case_id: str | None = None) -> list[EvidencePackRecord]:
         if case_id is None:
             return list(self._items)

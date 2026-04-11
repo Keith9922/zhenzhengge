@@ -26,12 +26,25 @@ uv sync
 uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+最小自测：
+
+```bash
+cd apps/api
+python3 scripts/smoke_test.py
+```
+
 ## 接口
 
 - `GET /health`
+- `POST /api/v1/evidence/intake`
 - `GET /api/v1/cases`
 - `GET /api/v1/cases/{case_id}`
 - `POST /api/v1/evidence-packs`
 - `GET /api/v1/document-templates`
 - `GET /api/v1/runtime/modules`
 
+## 联调建议
+
+- Web 主站默认 `http://localhost:3000`
+- 插件联调可使用 `chrome-extension://*`
+- 如需调整允许源，修改 `.env` 里的 `ZHZG_CORS_ORIGINS` 和 `ZHZG_CORS_ORIGIN_REGEX`

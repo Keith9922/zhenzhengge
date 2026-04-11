@@ -33,7 +33,18 @@ class CaseDetail(CaseSummary):
     monitoring_scope: list[str] = Field(default_factory=list)
 
 
+class CaseCreateRequest(BaseModel):
+    title: str
+    brand_name: str
+    suspect_name: str
+    platform: str
+    risk_score: int = Field(ge=0, le=100)
+    risk_level: str
+    description: str
+    tags: list[str] = Field(default_factory=list)
+    monitoring_scope: list[str] = Field(default_factory=list)
+
+
 class CaseListResponse(BaseModel):
     total: int
     items: list[CaseSummary]
-

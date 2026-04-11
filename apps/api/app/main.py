@@ -12,6 +12,7 @@ from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
 from app.services.notifications import NotificationAdapter
 from app.services.playwright import PlaywrightWorker
+from app.services.intake import IntakeService
 from app.services.templates import DocumentTemplateService
 
 
@@ -25,7 +26,14 @@ async def lifespan(app: FastAPI):
         "hermes": HermesOrchestrator(),
         "playwright": PlaywrightWorker(),
         "notifications": NotificationAdapter(),
+        "intake": None,
     }
+    app.state.services["intake"] = IntakeService(
+        case_service=app.state.services["cases"],
+        evidence_service=app.state.services["evidence"],
+        hermes=app.state.services["hermes"],
+        playwright=app.state.services["playwright"],
+    )
     yield
 
 
@@ -42,6 +50,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=settings.cors_origin_regex,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
