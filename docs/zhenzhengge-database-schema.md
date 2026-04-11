@@ -1,27 +1,185 @@
-# 证证鸽数据库表设计
+# 证证鸽数据库设计文档
 
-> 版本：`v0.1`  
-> 目标：定义第一阶段数据库核心对象与关系，作为后端建模和迁移脚本设计基线。
+> 文档类型：数据库与 ER 设计基线  
+> 版本：v0.2  
+> 更新时间：2026-04-11  
+> 说明：本文档区分“当前已实现数据库结构”和“目标数据库结构”。开发、迁移、建模时不能把两者混用。
 
-## 1. 设计原则
+## 1. 当前数据库状态
 
-1. 先保证案件、证据、模板、审核四条主线可跑通。
-2. 文件类大对象不直接存数据库，数据库只存元数据与引用地址。
-3. 所有关键动作要可追踪、可审计。
+当前项目已经在使用 SQLite 持久化。
 
-## 2. 核心实体
+数据库文件：
 
-第一阶段建议至少落以下表：
+- [zhenzhengge.db](/Users/ronggang/code/funcode/mofa/apps/api/data/zhenzhengge.db)
 
+当前实现代码：
+
+- [storage.py](/Users/ronggang/code/funcode/mofa/apps/api/app/core/storage.py)
+
+结论：
+
+- 当前数据库是**真实可写**的
+- 当前数据库是**极简版本**
+- 当前只建了两张核心业务表：
+  - `cases`
+  - `evidence_packs`
+
+## 2. 当前已实现 ER 图
+
+```mermaid
+erDiagram
+    CASES ||--o{ EVIDENCE_PACKS : contains
+
+    CASES {
+        string case_id PK
+        string title
+        string brand_name
+        string suspect_name
+        string platform
+        int risk_score
+        string risk_level
+        string status
+        string updated_at
+        string description
+        int evidence_count
+        int template_count
+        string tags_json
+        string monitoring_scope_json
+    }
+
+    EVIDENCE_PACKS {
+        string evidence_pack_id PK
+        string case_id FK
+        string source_url
+        string source_title
+        string capture_channel
+        string note
+        string hash_sha256
+        string snapshot_path
+        string html_path
+        string created_at
+        string status
+    }
+```
+
+## 3. 当前已实现表结构
+
+### 3.1 `cases`
+
+用途：
+
+- 存案件主数据
+- 作为工作台案件列表与详情的主表
+
+字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `case_id` | TEXT PK | 案件主键 |
+| `title` | TEXT | 案件标题 |
+| `brand_name` | TEXT | 品牌名 |
+| `suspect_name` | TEXT | 疑似主体 |
+| `platform` | TEXT | 来源平台 |
+| `risk_score` | INTEGER | 风险分 |
+| `risk_level` | TEXT | 风险等级 |
+| `status` | TEXT | 案件状态 |
+| `updated_at` | TEXT | 更新时间 |
+| `description` | TEXT | 案件描述 |
+| `evidence_count` | INTEGER | 证据数量 |
+| `template_count` | INTEGER | 模板数量 |
+| `tags_json` | TEXT | 标签 JSON |
+| `monitoring_scope_json` | TEXT | 监控范围 JSON |
+
+### 3.2 `evidence_packs`
+
+用途：
+
+- 存证据包元数据
+- 记录来源 URL、标题、抓取渠道和文件路径
+
+字段：
+
+| 字段 | 类型 | 说明 |
+| --- | --- | --- |
+| `evidence_pack_id` | TEXT PK | 证据包主键 |
+| `case_id` | TEXT FK | 关联案件 |
+| `source_url` | TEXT | 来源 URL |
+| `source_title` | TEXT | 来源标题 |
+| `capture_channel` | TEXT | 抓取来源 |
+| `note` | TEXT | 备注 |
+| `hash_sha256` | TEXT | 内容哈希 |
+| `snapshot_path` | TEXT | 截图路径 |
+| `html_path` | TEXT | HTML 路径 |
+| `created_at` | TEXT | 创建时间 |
+| `status` | TEXT | 状态 |
+
+## 4. 当前数据库的限制
+
+当前数据库还缺这些关键对象：
+
+- 用户
+- 角色
+- 组织
+- 模板
+- 文书草稿
+- 审核任务
+- 监控任务
+- 通知配置
+- 通知日志
+- 工作流运行记录
+- 审计日志
+
+所以当前 SQLite 只能支撑：
+
+- 案件
+- 证据包
+
+还不能支撑：
+
+- 权限体系
+- 审核流
+- 通知配置
+- 文书生成记录
+- 监控任务管理
+
+## 5. 目标数据库 ER 图
+
+这是后续完整版本建议结构，不是当前已落地结构。
+
+```mermaid
+erDiagram
+    ORGANIZATIONS ||--o{ USERS : has
+    USERS ||--o{ USER_ROLES : maps
+    ROLES ||--o{ USER_ROLES : assigned
+    ORGANIZATIONS ||--o{ BRAND_ASSETS : owns
+    ORGANIZATIONS ||--o{ CASES : owns
+    BRAND_ASSETS ||--o{ CASES : linked_to
+    CASES ||--o{ EVIDENCE_PACKS : contains
+    EVIDENCE_PACKS ||--o{ EVIDENCE_FILES : includes
+    CASES ||--o{ RISK_ANALYSES : has
+    DOCUMENT_TEMPLATES ||--o{ DOCUMENT_DRAFTS : based_on
+    CASES ||--o{ DOCUMENT_DRAFTS : generates
+    DOCUMENT_DRAFTS ||--o{ REVIEW_TASKS : enters
+    REVIEW_TASKS ||--o{ REVIEW_COMMENTS : contains
+    ORGANIZATIONS ||--o{ MONITOR_TASKS : owns
+    ORGANIZATIONS ||--o{ NOTIFICATION_CHANNELS : owns
+    CASES ||--o{ NOTIFICATION_LOGS : triggers
+    CASES ||--o{ WORKFLOW_RUNS : creates
+    USERS ||--o{ AUDIT_LOGS : operates
+```
+
+## 6. 目标数据库表建议
+
+后续建议补这些表：
+
+- `organizations`
 - `users`
 - `roles`
 - `user_roles`
-- `organizations`
 - `brand_assets`
-- `cases`
-- `evidence_packs`
-- `evidence_files`
 - `risk_analyses`
+- `evidence_files`
 - `document_templates`
 - `document_drafts`
 - `review_tasks`
@@ -32,302 +190,44 @@
 - `workflow_runs`
 - `audit_logs`
 
-## 3. 表结构建议
+## 7. 推荐的演进路线
 
-## 3.1 organizations
+### 第一阶段已经有
 
-字段：
-
-- `id`
-- `name`
-- `created_at`
-- `updated_at`
-
-## 3.2 users
-
-字段：
-
-- `id`
-- `organization_id`
-- `email`
-- `name`
-- `status`
-- `created_at`
-- `updated_at`
-
-## 3.3 roles
-
-字段：
-
-- `id`
-- `code`  
-  值建议：`viewer`、`operator`、`reviewer`、`admin`
-- `name`
-
-## 3.4 user_roles
-
-字段：
-
-- `id`
-- `user_id`
-- `role_id`
-
-## 3.5 brand_assets
-
-字段：
-
-- `id`
-- `organization_id`
-- `name`
-- `asset_type`  
-  值建议：`trademark_word`、`trademark_logo`、`brand_name`
-- `text_value`
-- `image_file_url`
-- `notes`
-- `created_at`
-
-## 3.6 cases
-
-字段：
-
-- `id`
-- `organization_id`
-- `brand_asset_id`
-- `title`
-- `source_type`
-- `source_site`
-- `source_url`
-- `status`
-- `risk_level`
-- `summary`
-- `created_by`
-- `created_at`
-- `updated_at`
-
-状态建议：
-
-- `new`
-- `analyzed`
-- `drafting`
-- `reviewing`
-- `done`
-
-## 3.7 evidence_packs
-
-字段：
-
-- `id`
-- `case_id`
-- `captured_at`
-- `page_title`
-- `page_url`
-- `page_hash`
-- `text_summary`
-- `notes`
-- `created_at`
-
-## 3.8 evidence_files
-
-字段：
-
-- `id`
-- `evidence_pack_id`
-- `file_type`  
-  值建议：`full_screenshot`、`html`、`text`、`image_list`、`attachment`
-- `file_url`
-- `mime_type`
-- `size_bytes`
-- `created_at`
-
-## 3.9 risk_analyses
-
-字段：
-
-- `id`
-- `case_id`
-- `text_score`
-- `image_score`
-- `final_score`
-- `risk_level`
-- `hit_reasons`
-- `analyzed_at`
-
-## 3.10 document_templates
-
-字段：
-
-- `id`
-- `name`
-- `template_type`  
-  值建议：`lawyer_letter`、`platform_complaint`、`report_material`
-- `file_url`
-- `version`
-- `enabled`
-- `created_at`
-
-## 3.11 document_drafts
-
-字段：
-
-- `id`
-- `case_id`
-- `template_id`
-- `status`
-- `file_url`
-- `variables_json`
-- `created_by`
-- `created_at`
-- `updated_at`
-
-状态建议：
-
-- `generated`
-- `submitted`
-- `approved`
-- `rejected`
-
-## 3.12 review_tasks
-
-字段：
-
-- `id`
-- `draft_id`
-- `reviewer_id`
-- `status`
-- `submitted_at`
-- `completed_at`
-
-## 3.13 review_comments
-
-字段：
-
-- `id`
-- `review_task_id`
-- `comment`
-- `created_by`
-- `created_at`
-
-## 3.14 monitor_tasks
-
-字段：
-
-- `id`
-- `organization_id`
-- `target_type`
-- `target_url`
-- `site`
-- `brand_keywords_json`
-- `frequency`
-- `risk_threshold`
-- `status`
-- `created_by`
-- `created_at`
-
-## 3.15 notification_channels
-
-字段：
-
-- `id`
-- `organization_id`
-- `channel_type`  
-  值建议：`dingtalk`、`email`
-- `config_json`
-- `enabled`
-- `created_at`
-
-## 3.16 notification_logs
-
-字段：
-
-- `id`
-- `case_id`
-- `channel_type`
-- `target`
-- `status`
-- `message_summary`
-- `sent_at`
-
-## 3.17 workflow_runs
-
-字段：
-
-- `id`
-- `workflow_type`  
-  值建议：`capture`、`monitor`、`generate_draft`
-- `case_id`
-- `status`
-- `input_json`
-- `output_json`
-- `created_at`
-- `updated_at`
-
-## 3.18 audit_logs
-
-字段：
-
-- `id`
-- `user_id`
-- `action`
-- `target_type`
-- `target_id`
-- `metadata_json`
-- `created_at`
-
-## 4. 关系说明
-
-```mermaid
-erDiagram
-    organizations ||--o{ users : has
-    users ||--o{ user_roles : has
-    roles ||--o{ user_roles : grants
-    organizations ||--o{ brand_assets : owns
-    organizations ||--o{ cases : owns
-    brand_assets ||--o{ cases : related_to
-    cases ||--o{ evidence_packs : has
-    evidence_packs ||--o{ evidence_files : contains
-    cases ||--o{ risk_analyses : has
-    cases ||--o{ document_drafts : has
-    document_templates ||--o{ document_drafts : generates
-    document_drafts ||--o{ review_tasks : enters
-    review_tasks ||--o{ review_comments : contains
-    organizations ||--o{ monitor_tasks : owns
-    organizations ||--o{ notification_channels : owns
-    cases ||--o{ notification_logs : produces
-    cases ||--o{ workflow_runs : triggers
-```
-
-## 5. 第一阶段必须落表
-
-P0 至少先实现：
-
-- `users`
-- `roles`
-- `user_roles`
-- `organizations`
-- `brand_assets`
 - `cases`
 - `evidence_packs`
-- `evidence_files`
-- `risk_analyses`
+
+### 第二阶段建议新增
+
 - `document_templates`
 - `document_drafts`
 - `review_tasks`
+- `review_comments`
+
+### 第三阶段建议新增
+
+- `organizations`
+- `users`
+- `roles`
+- `user_roles`
 - `monitor_tasks`
 - `notification_channels`
+- `notification_logs`
 - `workflow_runs`
 - `audit_logs`
 
-## 6. 建模建议
+## 8. 当前开发建议
 
-1. 能枚举的字段尽量枚举，不要完全放任自由字符串。
-2. 所有 JSON 字段只放弹性配置，不替代核心结构字段。
-3. 与对象存储有关的文件一律只存 URL 和元数据。
-4. 所有关键动作都补 `created_at / updated_at`。
+如果你说“继续开发”，数据库线建议按这个顺序补：
 
-## 7. 下一步
+1. `document_drafts`
+2. `review_tasks`
+3. `monitor_tasks`
+4. `notification_channels`
+5. `audit_logs`
 
-基于本表下一步应补：
+理由很简单：
 
-- SQLAlchemy 模型
-- Alembic 迁移脚本
-- 初始种子数据
+- 这 5 个表最直接支撑你下一步要做的功能
+- 不用一上来就把完整 RBAC 全部打完
+
