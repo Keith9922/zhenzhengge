@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "manifest": {
-    "permissions": ["tabs", "activeTab"]
+    "permissions": ["tabs", "activeTab", "scripting"]
   },
   "scripts": {
     "dev": "plasmo dev",

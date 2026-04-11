@@ -5,7 +5,7 @@
 ## 功能
 
 - 当前页面一键取证
-- 采集 URL、标题、时间戳
+- 采集 URL、标题、时间戳、页面正文和可视区截图
 - 模拟提交到后端
 - 预留后续截图、DOM 抽取、证据上传能力
 
@@ -32,3 +32,25 @@ PLASMO_PUBLIC_API_BASE_URL=http://localhost:8000
 ```
 
 如果暂时不配置，插件会退回到本地模拟提交模式。
+
+## 默认提交接口
+
+优先对接：
+
+```bash
+/api/v1/evidence/intake
+```
+
+请求体会优先包含：
+
+- `requestId`
+- `sourceType`
+- `sourceUrl`
+- `pageTitle`
+- `capturedAt`
+- `notes`
+- `pageText`
+- `rawHtml`
+- `screenshotBase64`
+- `imageUrls`
+- `captureWarnings`

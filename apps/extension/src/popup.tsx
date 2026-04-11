@@ -6,6 +6,10 @@ type EvidenceDraft = {
   url: string
   capturedAt: string
   source: string
+  pageText: string
+  rawHtml: string
+  screenshotBase64: string
+  captureWarnings: string[]
 }
 
 type SubmitResult = {
@@ -16,20 +20,97 @@ type SubmitResult = {
 }
 
 const API_BASE_URL = process.env.PLASMO_PUBLIC_API_BASE_URL?.trim() ?? ""
+const INTAKE_PATH = "/api/v1/evidence/intake"
 
 async function getActiveTabDraft(): Promise<EvidenceDraft> {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+
+  const tabId = tab?.id
+  const captureWarnings: string[] = []
+  let pageText = ""
+  let rawHtml = ""
+  let screenshotBase64 = ""
+
+  if (typeof tabId === "number") {
+    try {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: () => {
+          const bodyText = document.body?.innerText ?? ""
+          const html = document.documentElement?.outerHTML ?? ""
+
+          return {
+            pageText: bodyText,
+            rawHtml: html
+          }
+        }
+      })
+
+      const result = results?.[0]?.result
+      pageText = result?.pageText ?? ""
+      rawHtml = result?.rawHtml ?? ""
+    } catch (error) {
+      captureWarnings.push(
+        `页面文本采集失败：${error instanceof Error ? error.message : "unknown error"}`
+      )
+    }
+
+    try {
+      screenshotBase64 = await captureVisibleTabBase64()
+    } catch (error) {
+      captureWarnings.push(
+        `可视区截图失败：${error instanceof Error ? error.message : "unknown error"}`
+      )
+    }
+  } else {
+    captureWarnings.push("未获取到有效标签页 ID，跳过页面注入和截图采集。")
+  }
 
   return {
     title: tab?.title?.trim() || "未命名页面",
     url: tab?.url?.trim() || "about:blank",
     capturedAt: new Date().toISOString(),
-    source: "browser-extension"
+    source: "browser-extension",
+    pageText,
+    rawHtml,
+    screenshotBase64,
+    captureWarnings
+  }
+}
+
+async function captureVisibleTabBase64(): Promise<string> {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true })
+
+  if (!tab?.windowId && tab?.windowId !== 0) {
+    throw new Error("未找到当前窗口，无法截图")
+  }
+
+  const screenshot = await chrome.tabs.captureVisibleTab(tab.windowId, {
+    format: "png"
+  })
+
+  return screenshot ?? ""
+}
+
+function buildIntakePayload(draft: EvidenceDraft, requestId: string) {
+  return {
+    requestId,
+    sourceType: "browser-extension",
+    sourceUrl: draft.url,
+    pageTitle: draft.title,
+    capturedAt: draft.capturedAt,
+    notes: "通过证证鸽浏览器插件一键取证生成",
+    pageText: draft.pageText,
+    rawHtml: draft.rawHtml,
+    screenshotBase64: draft.screenshotBase64,
+    imageUrls: [],
+    captureWarnings: draft.captureWarnings
   }
 }
 
 async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
   const requestId = `zzg_${Date.now()}`
+  const payload = buildIntakePayload(draft, requestId)
 
   if (!API_BASE_URL) {
     await new Promise((resolve) => setTimeout(resolve, 500))
@@ -42,15 +123,12 @@ async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
   }
 
   try {
-    const response = await fetch(`${API_BASE_URL.replace(/\/$/, "")}/evidence/intake`, {
+    const response = await fetch(`${API_BASE_URL.replace(/\/$/, "")}${INTAKE_PATH}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
-      body: JSON.stringify({
-        ...draft,
-        requestId
-      })
+      body: JSON.stringify(payload)
     })
 
     if (!response.ok) {
@@ -89,6 +167,14 @@ export default function Popup() {
     })
   }, [draft])
 
+  const screenshotLabel = useMemo(() => {
+    if (!draft) {
+      return "等待采集"
+    }
+
+    return draft.screenshotBase64 ? "已采集可视区截图" : "截图未获取，已降级"
+  }, [draft])
+
   const handleCapture = async () => {
     setLoading(true)
     setStatus("正在采集当前页面信息...")
@@ -96,7 +182,11 @@ export default function Popup() {
     try {
       const nextDraft = await getActiveTabDraft()
       setDraft(nextDraft)
-      setStatus("页面信息已采集，正在模拟提交...")
+      setStatus(
+        nextDraft.captureWarnings.length > 0
+          ? `页面信息已采集，存在 ${nextDraft.captureWarnings.length} 条降级提示，正在提交...`
+          : "页面信息已采集，正在提交..."
+      )
 
       const result = await simulateSubmit(nextDraft)
       setRequestId(result.requestId)
@@ -144,10 +234,35 @@ export default function Popup() {
           <span style={styles.value}>{requestId || "未生成"}</span>
         </div>
         <div style={styles.row}>
+          <span style={styles.label}>页面正文</span>
+          <span style={styles.value}>{draft?.pageText ? "已采集" : "未采集或为空"}</span>
+        </div>
+        <div style={styles.row}>
+          <span style={styles.label}>页面 HTML</span>
+          <span style={styles.value}>{draft?.rawHtml ? "已采集" : "未采集或为空"}</span>
+        </div>
+        <div style={styles.row}>
+          <span style={styles.label}>可视区截图</span>
+          <span style={styles.value}>{screenshotLabel}</span>
+        </div>
+        <div style={styles.row}>
           <span style={styles.label}>当前状态</span>
           <span style={styles.value}>{status}</span>
         </div>
       </section>
+
+      {draft?.captureWarnings?.length ? (
+        <section style={styles.warningCard}>
+          <div style={styles.warningTitle}>降级提示</div>
+          <ul style={styles.warningList}>
+            {draft.captureWarnings.map((item) => (
+              <li key={item} style={styles.warningItem}>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
 
       <footer style={styles.footer}>
         <span>后续可继续扩展：截图、DOM 抽取、证据压缩包上传。</span>
@@ -256,5 +371,28 @@ const styles: Record<string, CSSProperties> = {
     fontSize: 12,
     lineHeight: 1.6,
     color: "#64748b"
+  },
+  warningCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    background: "#fff7ed",
+    border: "1px solid rgba(249, 115, 22, 0.22)"
+  },
+  warningTitle: {
+    marginBottom: 8,
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#9a3412"
+  },
+  warningList: {
+    margin: 0,
+    paddingLeft: 18,
+    color: "#9a3412",
+    fontSize: 12,
+    lineHeight: 1.6
+  },
+  warningItem: {
+    marginBottom: 6
   }
 }
