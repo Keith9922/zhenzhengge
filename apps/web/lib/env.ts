@@ -5,3 +5,21 @@ export function getRepoUrl() {
 export function getApiBaseUrl() {
   return process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "";
 }
+
+export function getApiV1BaseUrl() {
+  const baseUrl = getApiBaseUrl().trim().replace(/\/$/, "");
+
+  if (!baseUrl) {
+    return "";
+  }
+
+  if (baseUrl.endsWith("/api/v1")) {
+    return baseUrl;
+  }
+
+  if (baseUrl.endsWith("/api")) {
+    return `${baseUrl}/v1`;
+  }
+
+  return `${baseUrl}/api/v1`;
+}

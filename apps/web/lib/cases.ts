@@ -1,3 +1,5 @@
+import { getApiV1BaseUrl } from "@/lib/env";
+
 export type CaseStatus = "高风险" | "待复核" | "处理中" | "已完成";
 
 export type CaseSummary = {
@@ -71,16 +73,58 @@ function normalize(value: string) {
   return value.trim().toLowerCase();
 }
 
+function buildCasesEndpoint(path = "") {
+  const baseUrl = getApiV1BaseUrl();
+  if (!baseUrl) {
+    return "";
+  }
+
+  const normalizedPath = path ? `/${path.replace(/^\/+/, "")}` : "";
+  return `${baseUrl}${normalizedPath}`;
+}
+
+function extractCaseList(payload: unknown): CaseSummary[] {
+  const candidates =
+    Array.isArray(payload)
+      ? payload
+      : typeof payload === "object" && payload !== null
+        ? [
+            (payload as { items?: unknown }).items,
+            (payload as { data?: unknown }).data,
+            (payload as { cases?: unknown }).cases,
+          ].find(Array.isArray)
+        : undefined;
+
+  return Array.isArray(candidates) ? (candidates as CaseSummary[]) : [];
+}
+
+function extractCaseDetail(payload: unknown): CaseDetail | undefined {
+  if (!payload || typeof payload !== "object") {
+    return undefined;
+  }
+
+  const direct = payload as CaseDetail & { item?: unknown; data?: unknown; case?: unknown };
+  const candidates = [direct, direct.item, direct.data, direct.case].filter(Boolean);
+
+  for (const candidate of candidates) {
+    if (candidate && typeof candidate === "object" && "id" in candidate && "title" in candidate) {
+      return candidate as CaseDetail;
+    }
+  }
+
+  return undefined;
+}
+
 export async function getCases() {
-  const apiBase = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "";
-  if (!apiBase) {
+  const endpoint = buildCasesEndpoint();
+  if (!endpoint) {
     return { items: mockCases, source: "mock" as const };
   }
 
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 2500);
-    const response = await fetch(`${apiBase.replace(/\/$/, "")}/cases`, {
+    const response = await fetch(endpoint, {
       cache: "no-store",
       signal: controller.signal,
     }).finally(() => clearTimeout(timeout));
@@ -90,11 +134,7 @@ export async function getCases() {
     }
 
     const payload: unknown = await response.json();
-    const items = Array.isArray(payload)
-      ? payload
-      : typeof payload === "object" && payload !== null && "items" in payload && Array.isArray((payload as { items?: unknown }).items)
-        ? ((payload as { items: unknown[] }).items)
-        : [];
+    const items = extractCaseList(payload);
 
     if (!items.length) {
       return { items: mockCases, source: "mock" as const };
@@ -107,20 +147,21 @@ export async function getCases() {
 }
 
 export async function getCaseById(caseId: string) {
-  const apiBase = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "";
-  if (apiBase) {
+  const endpoint = buildCasesEndpoint(encodeURIComponent(caseId));
+  if (endpoint) {
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 2500);
-      const response = await fetch(`${apiBase.replace(/\/$/, "")}/cases/${encodeURIComponent(caseId)}`, {
+      const response = await fetch(endpoint, {
         cache: "no-store",
         signal: controller.signal,
       }).finally(() => clearTimeout(timeout));
 
       if (response.ok) {
         const payload = await response.json();
-        if (payload && typeof payload === "object") {
-          return payload as CaseDetail;
+        const item = extractCaseDetail(payload);
+        if (item) {
+          return item;
         }
       }
     } catch {
