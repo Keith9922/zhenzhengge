@@ -1,20 +1,22 @@
-from pydantic import BaseModel, Field, HttpUrl
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl
 
 from app.schemas.cases import CaseDetail
 from app.schemas.evidence import EvidencePackRecord
 
 
 class EvidenceIntakeRequest(BaseModel):
+    url: HttpUrl
     title: str
-    brand_name: str
-    suspect_name: str
-    platform: str
-    source_url: HttpUrl
-    source_title: str
-    description: str = ""
-    note: str | None = None
-    monitoring_scope: list[str] = Field(default_factory=list)
-    tags: list[str] = Field(default_factory=list)
+    captured_at: datetime = Field(alias="capturedAt")
+    source: str | None = None
+    page_text: str = Field(default="", alias="pageText")
+    html: str = ""
+    screenshot_base64: str = Field(default="", alias="screenshotBase64")
+    request_id: str = Field(alias="requestId")
+
+    model_config = ConfigDict(populate_by_name=True, extra="ignore")
 
 
 class EvidenceIntakeResponse(BaseModel):

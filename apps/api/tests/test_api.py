@@ -24,23 +24,22 @@ def test_plugin_intake_creates_case_and_evidence():
         response = client.post(
             "/api/v1/evidence/intake",
             json={
+                "url": "https://example.com/intake/1",
                 "title": "阿波达斯商品页疑似仿冒",
-                "brand_name": "阿迪达斯",
-                "suspect_name": "阿波达斯",
-                "platform": "淘宝",
-                "source_url": "https://example.com/intake/1",
-                "source_title": "阿波达斯商品页",
-                "description": "插件 intake 自动建案测试",
-                "note": "manual smoke",
-                "monitoring_scope": ["taobao.com"],
-                "tags": ["商标近似"],
+                "capturedAt": "2026-04-11T08:00:00Z",
+                "source": "browser-extension",
+                "pageText": "这是页面原始取证内容",
+                "html": "<html><body>mock</body></html>",
+                "screenshotBase64": "data:image/png;base64,ZmFrZQ==",
+                "requestId": "req-0001",
             },
         )
         assert response.status_code == 200
         payload = response.json()
         assert payload["case"]["title"] == "阿波达斯商品页疑似仿冒"
-        assert payload["case"]["brand_name"] == "阿迪达斯"
-        assert payload["evidence_pack"]["source_title"] == "阿波达斯商品页"
+        assert payload["case"]["brand_name"] == "阿波达斯商品页疑似仿冒"
+        assert payload["case"]["platform"] == "browser-extension"
+        assert payload["evidence_pack"]["source_title"] == "阿波达斯商品页疑似仿冒"
         assert payload["case"]["evidence_count"] == 1
 
         case_id = payload["case"]["case_id"]

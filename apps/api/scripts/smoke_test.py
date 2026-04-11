@@ -21,16 +21,14 @@ def main() -> None:
         intake = client.post(
             "/api/v1/evidence/intake",
             json={
+                "url": "https://example.com/intake/1",
                 "title": "阿波达斯商品页疑似仿冒",
-                "brand_name": "阿迪达斯",
-                "suspect_name": "阿波达斯",
-                "platform": "淘宝",
-                "source_url": "https://example.com/intake/1",
-                "source_title": "阿波达斯商品页",
-                "description": "smoke test",
-                "note": "smoke",
-                "monitoring_scope": ["taobao.com"],
-                "tags": ["商标近似"],
+                "capturedAt": "2026-04-11T08:00:00Z",
+                "source": "browser-extension",
+                "pageText": "这是页面原始取证内容",
+                "html": "<html><body>mock</body></html>",
+                "screenshotBase64": "data:image/png;base64,ZmFrZQ==",
+                "requestId": "req-0001",
             },
         )
         assert intake.status_code == 200, intake.text
@@ -38,6 +36,8 @@ def main() -> None:
         case_id = payload["case"]["case_id"]
         assert payload["case"]["evidence_count"] == 1
         assert payload["evidence_pack"]["case_id"] == case_id
+        assert payload["case"]["brand_name"] == "阿波达斯商品页疑似仿冒"
+        assert payload["case"]["platform"] == "browser-extension"
 
         detail = client.get(f"/api/v1/cases/{case_id}")
         assert detail.status_code == 200, detail.text
