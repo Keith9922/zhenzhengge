@@ -25,3 +25,14 @@
 - Web 构建：`pnpm build:web`
 - 插件构建：`pnpm build:extension`
 - API 测试：`pnpm test:api`
+
+## Web 运行时环境
+
+生产态或本地联调时，`apps/web` 需要显式提供：
+
+- `API_BASE_URL`：后端 API 根地址，例如 `http://127.0.0.1:8000`
+- `NEXT_PUBLIC_REPO_URL`：仓库地址，用于 Landing Page 和文档入口
+
+可参考：
+
+- `apps/web/.env.example`
