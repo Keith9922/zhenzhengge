@@ -3,7 +3,7 @@ import { ArrowRight, BookOpen, ExternalLink, ShieldCheck } from "lucide-react";
 import { FeatureCard } from "@/components/feature-card";
 import { SectionHeading } from "@/components/section-heading";
 import { SiteHeader } from "@/components/site-header";
-import { docsIndex, productHighlights, workflowSteps } from "@/lib/site";
+import { docsIndex, getRepoUrl, productHighlights, workflowSteps } from "@/lib/site";
 
 export default function HomePage() {
   return (
@@ -153,9 +153,14 @@ export default function HomePage() {
             >
               打开资料中心
             </Link>
-            <span className="inline-flex items-center rounded-full bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
-              仓库入口后续可对接 GitHub 仓库地址
-            </span>
+            <a
+              href={getRepoUrl()}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center rounded-full bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700 transition hover:bg-brand-100"
+            >
+              源码仓库
+            </a>
           </div>
         </section>
 

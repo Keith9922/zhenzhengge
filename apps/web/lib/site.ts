@@ -1,4 +1,6 @@
 import { BookOpen, Bot, FileText, ScanSearch, ShieldCheck, Sparkles } from "lucide-react";
+import { docEntries } from "@/lib/docs";
+import { getRepoUrl } from "@/lib/env";
 
 export const productHighlights = [
   {
@@ -61,22 +63,10 @@ export const workflowSteps = [
 ];
 
 export const docsIndex = [
-  {
-    title: "PRD",
-    href: "/docs#prd",
-    summary: "产品边界、目标角色、核心链路与成功标准。",
-  },
-  {
-    title: "技术选型表",
-    href: "/docs#tech-selection",
-    summary: "Plasmo、Next.js、FastAPI、Hermes 和通知方案的正式选型。",
-  },
-  {
-    title: "项目资料包",
-    href: "/docs#project-package",
-    summary: "品牌、流程、模块命名与展示口径的统一入口。",
-  },
+  ...docEntries,
 ];
+
+export { getRepoUrl };
 
 export const workspaceNav = [
   { href: "/workspace", label: "总览" },
