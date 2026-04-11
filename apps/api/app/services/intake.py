@@ -43,7 +43,10 @@ class IntakeService:
             )
         )
         _ = self.hermes.submit_capture_workflow(case.case_id)
-        _ = self.playwright.capture(url=str(payload.url), title=payload.title)
+        capture = None
+        needs_capture = not payload.html.strip() or not payload.screenshot_base64.strip()
+        if needs_capture:
+            capture = self.playwright.capture(url=str(payload.url), title=payload.title)
         evidence = self.evidence_service.create_pack_for_case(
             case_id=case.case_id,
             source_url=str(payload.url),
@@ -53,8 +56,9 @@ class IntakeService:
         )
         self.evidence_service.persist_capture_artifacts(
             evidence,
-            raw_html=payload.html,
+            raw_html=payload.html or (capture.html_content if capture else ""),
             screenshot_base64=payload.screenshot_base64,
+            screenshot_bytes=capture.screenshot_bytes if capture else None,
         )
         refreshed_case = self.case_service.attach_evidence(case.case_id)
         return refreshed_case or case, evidence

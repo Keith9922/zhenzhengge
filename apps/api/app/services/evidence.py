@@ -42,8 +42,9 @@ class EvidenceService:
         *,
         raw_html: str = "",
         screenshot_base64: str = "",
+        screenshot_bytes: bytes | None = None,
     ) -> EvidencePackRecord:
-        base_dir = Path(self.storage.db_path).resolve().parent if self.storage.db_path != ":memory:" else Path.cwd()
+        base_dir = self.storage.base_dir
         html_path = base_dir / record.html_path
         screenshot_path = base_dir / record.snapshot_path
 
@@ -52,7 +53,9 @@ class EvidenceService:
 
         html_path.write_text(raw_html or "<html><body>capture placeholder</body></html>", encoding="utf-8")
 
-        if screenshot_base64:
+        if screenshot_bytes:
+            screenshot_path.write_bytes(screenshot_bytes)
+        elif screenshot_base64:
             payload = screenshot_base64.split(",", 1)[-1]
             try:
                 screenshot_path.write_bytes(base64.b64decode(payload))
@@ -62,3 +65,22 @@ class EvidenceService:
             screenshot_path.write_bytes(b"")
 
         return record
+
+    def resolve_html_path(self, record: EvidencePackRecord) -> Path:
+        return self.storage.base_dir / record.html_path
+
+    def resolve_screenshot_path(self, record: EvidencePackRecord) -> Path:
+        return self.storage.base_dir / record.snapshot_path
+
+    def read_html(self, record: EvidencePackRecord) -> str:
+        path = self.resolve_html_path(record)
+        if not path.exists():
+            return ""
+        return path.read_text(encoding="utf-8")
+
+    def has_html(self, record: EvidencePackRecord) -> bool:
+        return self.resolve_html_path(record).exists()
+
+    def has_screenshot(self, record: EvidencePackRecord) -> bool:
+        path = self.resolve_screenshot_path(record)
+        return path.exists() and path.stat().st_size > 0

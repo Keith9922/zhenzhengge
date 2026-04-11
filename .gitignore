@@ -32,6 +32,7 @@ yarn-error.log*
 
 # Generated assets
 output/generated/
+output/playwright/
 tmp/generated/
 tmp/
 .playwright-mcp/

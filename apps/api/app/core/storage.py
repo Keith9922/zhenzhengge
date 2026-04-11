@@ -34,6 +34,7 @@ def _parse_sqlite_path(db_url: str) -> str:
 @dataclass
 class SQLiteStorage:
     db_url: str
+    seed_demo: bool = True
 
     def __post_init__(self) -> None:
         self.db_path = _parse_sqlite_path(self.db_url)
@@ -42,7 +43,14 @@ class SQLiteStorage:
             if path_obj.parent and str(path_obj.parent) not in {"", "."}:
                 path_obj.parent.mkdir(parents=True, exist_ok=True)
         self.ensure_schema()
-        self.seed_demo_data()
+        if self.seed_demo:
+            self.seed_demo_data()
+
+    @property
+    def base_dir(self) -> Path:
+        if self.db_path == ":memory:":
+            return Path.cwd()
+        return Path(self.db_path).resolve().parent
 
     @contextmanager
     def connect(self) -> sqlite3.Connection:
@@ -129,6 +137,22 @@ class SQLiteStorage:
                     enabled INTEGER NOT NULL DEFAULT 1,
                     created_at TEXT NOT NULL,
                     updated_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS notification_logs (
+                    log_id TEXT PRIMARY KEY,
+                    channel_id TEXT NOT NULL,
+                    task_id TEXT,
+                    case_id TEXT,
+                    event_type TEXT NOT NULL,
+                    subject TEXT NOT NULL,
+                    body TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    detail TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    FOREIGN KEY(channel_id) REFERENCES notification_channels(channel_id),
+                    FOREIGN KEY(task_id) REFERENCES monitor_tasks(task_id),
+                    FOREIGN KEY(case_id) REFERENCES cases(case_id)
                 );
                 """
             )
@@ -772,6 +796,55 @@ class SQLiteStorage:
             ).fetchone()
         return self._row_to_notification_channel(row) if row else None
 
+    def create_notification_log(
+        self,
+        *,
+        channel_id: str,
+        event_type: str,
+        subject: str,
+        body: str,
+        status: str,
+        detail: str,
+        task_id: str | None = None,
+        case_id: str | None = None,
+    ) -> str:
+        created_at = _now_iso()
+        serial = self._next_notification_log_serial()
+        log_id = f"notify-log-{serial:04d}"
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO notification_logs (
+                    log_id, channel_id, task_id, case_id, event_type,
+                    subject, body, status, detail, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    log_id,
+                    channel_id,
+                    task_id,
+                    case_id,
+                    event_type,
+                    subject,
+                    body,
+                    status,
+                    detail,
+                    created_at,
+                ),
+            )
+        return log_id
+
+    def list_notification_logs(self, *, limit: int = 50) -> list[sqlite3.Row]:
+        with self.connect() as conn:
+            return conn.execute(
+                """
+                SELECT * FROM notification_logs
+                ORDER BY created_at DESC, log_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
     def _next_case_serial(self) -> int:
         with self.connect() as conn:
             row = conn.execute(
@@ -804,5 +877,12 @@ class SQLiteStorage:
         with self.connect() as conn:
             row = conn.execute(
                 "SELECT COALESCE(MAX(CAST(SUBSTR(channel_id, 9) AS INTEGER)), 0) FROM notification_channels"
+            ).fetchone()
+        return int(row[0]) + 1
+
+    def _next_notification_log_serial(self) -> int:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(CAST(SUBSTR(log_id, 12) AS INTEGER)), 0) FROM notification_logs"
             ).fetchone()
         return int(row[0]) + 1

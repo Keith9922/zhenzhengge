@@ -1,18 +1,18 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, HttpUrl
 
 from app.schemas.cases import CaseDetail
 from app.schemas.evidence import EvidencePackRecord
 
 
 class EvidenceIntakeRequest(BaseModel):
-    url: HttpUrl
-    title: str
+    url: HttpUrl = Field(validation_alias=AliasChoices("url", "sourceUrl"))
+    title: str = Field(validation_alias=AliasChoices("title", "pageTitle"))
     captured_at: datetime = Field(alias="capturedAt")
-    source: str | None = None
+    source: str | None = Field(default=None, validation_alias=AliasChoices("source", "sourceType"))
     page_text: str = Field(default="", alias="pageText")
-    html: str = ""
+    html: str = Field(default="", validation_alias=AliasChoices("html", "rawHtml"))
     screenshot_base64: str = Field(default="", alias="screenshotBase64")
     request_id: str = Field(alias="requestId")
 

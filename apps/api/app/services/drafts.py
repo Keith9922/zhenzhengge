@@ -3,6 +3,8 @@ from pathlib import Path
 from app.core.storage import SQLiteStorage
 from app.schemas.drafts import DocumentDraftCreateRequest, DocumentDraftRecord, DraftStatus
 from app.services.cases import CaseService
+from app.services.evidence import EvidenceService
+from app.services.hermes import HermesOrchestrator
 from app.services.templates import DocumentTemplateService
 
 
@@ -13,10 +15,14 @@ class DocumentDraftService:
         *,
         case_service: CaseService,
         template_service: DocumentTemplateService,
+        evidence_service: EvidenceService,
+        hermes: HermesOrchestrator,
     ) -> None:
         self.storage = storage
         self.case_service = case_service
         self.template_service = template_service
+        self.evidence_service = evidence_service
+        self.hermes = hermes
 
     def list_drafts(self, case_id: str | None = None) -> list[DocumentDraftRecord]:
         return self.storage.list_document_drafts(case_id=case_id)
@@ -34,7 +40,31 @@ class DocumentDraftService:
             raise ValueError("模板不存在")
 
         title = f"{case.title} - {template.name}"
-        content = self._render_content(
+        _ = self.hermes.submit_document_workflow(template.template_key, case.case_id)
+        evidence_items = self.evidence_service.list_packs(case.case_id)
+        llm_result = self.hermes.generate_document_draft(
+            template_name=template.name,
+            case_context={
+                "case_id": case.case_id,
+                "title": case.title,
+                "brand_name": case.brand_name,
+                "suspect_name": case.suspect_name,
+                "platform": case.platform,
+                "risk_level": case.risk_level,
+                "description": case.description,
+            },
+            evidence_context=[
+                {
+                    "evidence_pack_id": item.evidence_pack_id,
+                    "source_title": item.source_title,
+                    "source_url": item.source_url,
+                    "note": item.note or "",
+                }
+                for item in evidence_items
+            ],
+            variables_override=payload.variables_override,
+        )
+        content = llm_result.content or self._render_content(
             case_title=case.title,
             brand_name=case.brand_name,
             suspect_name=case.suspect_name,

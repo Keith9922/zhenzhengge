@@ -14,11 +14,13 @@ class Settings(BaseSettings):
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
     cors_origin_regex: str = r"^chrome-extension://.*$|^http://localhost:(3000|3001)$|^http://127\.0\.0\.1:(3000|3001)$"
     service_tag: str = "zhenzhengge-api"
-    llm_provider: str = "placeholder"
-    openai_api_key: str = ""
-    openai_base_url: str = "https://api.openai.com/v1"
-    openai_model: str = "gpt-5.4-mini"
-    openai_reasoning_model: str = "gpt-5.4"
+    enable_demo_seed: bool = True
+    llm_provider: str = "stub"
+    llm_base_url: str = "https://api.openai.com/v1"
+    llm_api_key: str = Field(default="", repr=False)
+    llm_model: str = "mimo-v2-pro"
+    llm_reasoning_model: str = "o1-mini"
+    llm_tts_model: str = ""
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_username: str = ""

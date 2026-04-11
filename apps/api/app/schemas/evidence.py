@@ -40,3 +40,13 @@ class EvidencePackRecord(BaseModel):
 
 class EvidencePackResponse(BaseModel):
     item: EvidencePackRecord
+
+
+class EvidencePackPreviewResponse(BaseModel):
+    item: EvidencePackRecord
+    screenshot_available: bool
+    html_available: bool
+    screenshot_url: str | None = None
+    screenshot_download_url: str | None = None
+    html_download_url: str | None = None
+    html_excerpt: str = ""

@@ -13,6 +13,14 @@ from app.services.notifications import NotificationAdapter
 router = APIRouter()
 
 
+@router.get("/logs", summary="通知日志列表")
+def list_logs(
+    limit: int = 50,
+    service: NotificationAdapter = Depends(get_notification_adapter),
+) -> list[dict[str, str | None]]:
+    return service.list_logs(limit=limit)
+
+
 @router.get("", response_model=NotificationChannelListResponse, summary="通知渠道列表")
 def list_channels(
     service: NotificationAdapter = Depends(get_notification_adapter),

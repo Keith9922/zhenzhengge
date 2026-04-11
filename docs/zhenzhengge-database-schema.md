@@ -2,16 +2,12 @@
 
 > 文档类型：数据库与 ER 设计基线  
 > 版本：v0.2  
-> 更新时间：2026-04-11  
+> 更新时间：2026-04-12  
 > 说明：本文档区分“当前已实现数据库结构”和“目标数据库结构”。开发、迁移、建模时不能把两者混用。
 
 ## 1. 当前数据库状态
 
 当前项目已经在使用 SQLite 持久化。
-
-数据库文件：
-
-- [zhenzhengge.db](/Users/ronggang/code/funcode/mofa/apps/api/data/zhenzhengge.db)
 
 当前实现代码：
 
@@ -21,12 +17,13 @@
 
 - 当前数据库是**真实可写**的
 - 当前数据库是**最小可用业务版本**
-- 当前已经落地 5 张业务表：
+- 当前已经落地 6 张业务表：
   - `cases`
   - `evidence_packs`
   - `document_drafts`
   - `monitor_tasks`
   - `notification_channels`
+  - `notification_logs`
 
 ## 2. 当前已实现 ER 图
 
@@ -34,6 +31,7 @@
 erDiagram
     CASES ||--o{ EVIDENCE_PACKS : contains
     CASES ||--o{ DOCUMENT_DRAFTS : generates
+    CASES ||--o{ NOTIFICATION_LOGS : triggers
 
     CASES {
         string case_id PK
@@ -103,6 +101,18 @@ erDiagram
         string created_at
         string updated_at
     }
+
+    NOTIFICATION_LOGS {
+        string log_id PK
+        string channel_id FK
+        string task_id
+        string case_id
+        string event_type
+        string subject
+        string status
+        string detail
+        string created_at
+    }
 ```
 
 ## 3. 当前已实现表结构
@@ -165,7 +175,6 @@ erDiagram
 - 组织
 - 模板
 - 审核任务
-- 通知日志
 - 工作流运行记录
 - 审计日志
 
@@ -181,7 +190,6 @@ erDiagram
 
 - 权限体系
 - 审核流
-- 通知日志
 - 监控任务管理
 - 细粒度模板管理
 

@@ -3,13 +3,21 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { postProxyJson } from "@/lib/client-api";
-import type { NotificationChannelItem } from "@/lib/notifications";
+import type { NotificationChannelItem, NotificationLogItem } from "@/lib/notifications";
 
 type NotificationConsoleProps = {
   items: NotificationChannelItem[];
+  logs: NotificationLogItem[];
 };
 
-export function NotificationConsole({ items }: NotificationConsoleProps) {
+const statusLabelMap: Record<string, string> = {
+  sent: "发送成功",
+  "dry-run": "演示日志",
+  disabled: "渠道停用",
+  failed: "发送失败",
+};
+
+export function NotificationConsole({ items, logs }: NotificationConsoleProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [message, setMessage] = useState("");
@@ -113,6 +121,44 @@ export function NotificationConsole({ items }: NotificationConsoleProps) {
           </article>
         ))}
       </div>
+
+      <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">通知日志</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">展示最近一次测试发送或监控任务命中后的提醒记录，用于联调和验收。</p>
+          </div>
+        </div>
+        <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
+          <table className="min-w-full divide-y divide-slate-200 text-sm">
+            <thead className="bg-slate-50 text-left text-xs uppercase tracking-[0.2em] text-slate-500">
+              <tr>
+                <th className="px-4 py-3">主题</th>
+                <th className="px-4 py-3">事件</th>
+                <th className="px-4 py-3">状态</th>
+                <th className="px-4 py-3">时间</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 bg-white">
+              {logs.map((item) => (
+                <tr key={item.id}>
+                  <td className="px-4 py-4 align-top">
+                    <p className="font-medium text-ink">{item.subject}</p>
+                    <p className="mt-1 text-xs leading-5 text-slate-500">{item.detail}</p>
+                  </td>
+                  <td className="px-4 py-4 align-top text-slate-600">{item.eventType}</td>
+                  <td className="px-4 py-4 align-top">
+                    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                      {statusLabelMap[item.status] ?? item.status}
+                    </span>
+                  </td>
+                  <td className="px-4 py-4 align-top text-slate-600">{item.createdAt}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }

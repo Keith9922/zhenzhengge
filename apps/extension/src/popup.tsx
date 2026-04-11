@@ -14,7 +14,7 @@ type EvidenceDraft = {
 
 type SubmitResult = {
   ok: boolean
-  mode: "simulated" | "api"
+  mode: "development" | "api"
   message: string
   requestId: string
   caseId: string
@@ -24,6 +24,9 @@ type SubmitResult = {
 
 const API_BASE_URL = process.env.PLASMO_PUBLIC_API_BASE_URL?.trim() ?? ""
 const WEB_BASE_URL = process.env.PLASMO_PUBLIC_WEB_BASE_URL?.trim() ?? ""
+const IS_PRODUCTION = process.env.NODE_ENV === "production"
+const ALLOW_SIMULATED_SUBMISSION =
+  process.env.PLASMO_PUBLIC_ALLOW_SIMULATED_SUBMISSION?.trim() === "true" || !IS_PRODUCTION
 const INTAKE_PATH = "/api/v1/evidence/intake"
 
 async function getActiveTabDraft(): Promise<EvidenceDraft> {
@@ -99,29 +102,52 @@ async function captureVisibleTabBase64(): Promise<string> {
 function buildIntakePayload(draft: EvidenceDraft, requestId: string) {
   return {
     requestId,
-    sourceType: "browser-extension",
-    sourceUrl: draft.url,
-    pageTitle: draft.title,
+    source: "browser-extension",
+    url: draft.url,
+    title: draft.title,
     capturedAt: draft.capturedAt,
     notes: "通过证证鸽浏览器插件一键取证生成",
     pageText: draft.pageText,
-    rawHtml: draft.rawHtml,
+    html: draft.rawHtml,
     screenshotBase64: draft.screenshotBase64,
     imageUrls: [],
     captureWarnings: draft.captureWarnings
   }
 }
 
-async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
+function parseIntakeResponse(responseBody: unknown) {
+  if (!responseBody || typeof responseBody !== "object") {
+    throw new Error("后端返回为空，无法解析 intake 契约")
+  }
+
+  const body = responseBody as {
+    case?: { case_id?: string }
+    evidence_pack?: { evidence_pack_id?: string }
+  }
+  const caseId = body.case?.case_id?.trim() ?? ""
+  const evidencePackId = body.evidence_pack?.evidence_pack_id?.trim() ?? ""
+
+  if (!caseId || !evidencePackId) {
+    throw new Error("后端返回结构不符合 intake 契约，应包含 case.case_id 和 evidence_pack.evidence_pack_id")
+  }
+
+  return { caseId, evidencePackId }
+}
+
+async function submitEvidence(draft: EvidenceDraft): Promise<SubmitResult> {
   const requestId = `zzg_${Date.now()}`
   const payload = buildIntakePayload(draft, requestId)
 
   if (!API_BASE_URL) {
+    if (!ALLOW_SIMULATED_SUBMISSION) {
+      throw new Error("正式模式未配置后端 API_BASE_URL，无法提交取证")
+    }
+
     await new Promise((resolve) => setTimeout(resolve, 500))
     return {
       ok: true,
-      mode: "simulated",
-      message: `当前页面 ${draft.title} 已生成取证草稿，可继续在工作台查看和整理。`,
+      mode: "development",
+      message: `【开发模式】当前页面 ${draft.title} 已生成本地取证草稿，未实际发送到后端。`,
       requestId,
       caseId: "",
       evidencePackId: "",
@@ -142,37 +168,43 @@ async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
       throw new Error(`HTTP ${response.status}`)
     }
 
-    const responseBody = (await response.json().catch(() => null)) as
-      | {
-          caseId?: string
-          evidencePackId?: string
-          case_id?: string
-          evidence_pack_id?: string
-        }
-      | null
-
-    const caseId = responseBody?.caseId ?? responseBody?.case_id ?? ""
-    const evidencePackId = responseBody?.evidencePackId ?? responseBody?.evidence_pack_id ?? ""
+    const responseBody = await response.json().catch(() => null)
+    const { caseId, evidencePackId } = parseIntakeResponse(responseBody)
     const workbenchUrl = WEB_BASE_URL
       ? `${WEB_BASE_URL.replace(/\/$/, "")}/workspace/cases/${encodeURIComponent(
-          caseId || requestId
+          caseId
         )}`
       : ""
 
     return {
       ok: true,
       mode: "api",
-      message: "当前页面已完成提交，可继续在工作台查看取证记录。",
+      message: "【正式模式】当前页面已完成提交，可继续在工作台查看取证记录。",
       requestId,
       caseId,
       evidencePackId,
       workbenchUrl
     }
   } catch (error) {
+    if (ALLOW_SIMULATED_SUBMISSION) {
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      return {
+        ok: true,
+        mode: "development",
+        message: `【开发模式】后端提交失败，已转为本地模拟提交：${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+        requestId,
+        caseId: "",
+        evidencePackId: "",
+        workbenchUrl: ""
+      }
+    }
+
     return {
-      ok: true,
-      mode: "simulated",
-      message: `当前页面已生成本地取证草稿，可稍后继续整理：${error instanceof Error ? error.message : "unknown error"}`,
+      ok: false,
+      mode: "api",
+      message: `取证提交失败：${error instanceof Error ? error.message : "unknown error"}`,
       requestId,
       caseId: "",
       evidencePackId: "",
@@ -188,6 +220,7 @@ export default function Popup() {
   const [caseId, setCaseId] = useState<string>("")
   const [evidencePackId, setEvidencePackId] = useState<string>("")
   const [workbenchUrl, setWorkbenchUrl] = useState<string>("")
+  const [submissionMode, setSubmissionMode] = useState<string>("未提交")
   const [loading, setLoading] = useState(false)
 
   const capturedLabel = useMemo(() => {
@@ -221,13 +254,15 @@ export default function Popup() {
           : "页面信息已采集，正在提交..."
       )
 
-      const result = await simulateSubmit(nextDraft)
+      const result = await submitEvidence(nextDraft)
       setRequestId(result.requestId)
       setCaseId(result.caseId)
       setEvidencePackId(result.evidencePackId)
       setWorkbenchUrl(result.workbenchUrl)
+      setSubmissionMode(result.mode === "api" ? "正式模式" : "开发模式")
       setStatus(result.message)
     } catch (error) {
+      setSubmissionMode("失败")
       setStatus(error instanceof Error ? error.message : "取证失败")
     } finally {
       setLoading(false)
@@ -270,6 +305,10 @@ export default function Popup() {
           <span style={styles.value}>{requestId || "未生成"}</span>
         </div>
         <div style={styles.row}>
+          <span style={styles.label}>提交模式</span>
+          <span style={styles.value}>{submissionMode}</span>
+        </div>
+        <div style={styles.row}>
           <span style={styles.label}>案件编号</span>
           <span style={styles.value}>{caseId || "待生成"}</span>
         </div>
@@ -308,18 +347,12 @@ export default function Popup() {
         </section>
       ) : null}
 
-      {WEB_BASE_URL ? (
-        <a
-          href={
-            workbenchUrl ||
-            `${WEB_BASE_URL.replace(/\/$/, "")}/workspace/cases/${encodeURIComponent(requestId)}`
-          }
-          target="_blank"
-          rel="noreferrer"
-          style={styles.linkButton}
-        >
+      {workbenchUrl ? (
+        <a href={workbenchUrl} target="_blank" rel="noreferrer" style={styles.linkButton}>
           打开案件详情
         </a>
+      ) : submissionMode === "development" && WEB_BASE_URL ? (
+        <div style={styles.devHint}>开发模式下未生成真实案件链接，可在后端接通后继续查看。</div>
       ) : null}
 
       <footer style={styles.footer}>
@@ -467,5 +500,15 @@ const styles: Record<string, CSSProperties> = {
     fontWeight: 700,
     textDecoration: "none",
     boxSizing: "border-box"
+  },
+  devHint: {
+    marginTop: 12,
+    padding: "10px 12px",
+    borderRadius: 14,
+    background: "#eff6ff",
+    border: "1px solid rgba(59, 130, 246, 0.18)",
+    color: "#1d4ed8",
+    fontSize: 12,
+    lineHeight: 1.6
   }
 }

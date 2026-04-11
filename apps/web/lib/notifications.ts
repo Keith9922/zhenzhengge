@@ -10,6 +10,16 @@ export type NotificationChannelItem = {
   updatedAt: string;
 };
 
+export type NotificationLogItem = {
+  id: string;
+  channelId: string;
+  eventType: string;
+  subject: string;
+  status: string;
+  detail: string;
+  createdAt: string;
+};
+
 type ApiNotificationChannel = {
   channel_id?: string;
   channel_type?: string;
@@ -24,6 +34,16 @@ type ApiNotificationList = {
   items?: ApiNotificationChannel[];
 };
 
+type ApiNotificationLog = {
+  log_id?: string;
+  channel_id?: string;
+  event_type?: string;
+  subject?: string;
+  status?: string;
+  detail?: string;
+  created_at?: string;
+};
+
 const mockChannels: NotificationChannelItem[] = [
   {
     id: "channel-0001",
@@ -32,6 +52,18 @@ const mockChannels: NotificationChannelItem[] = [
     target: "legal@example.com",
     enabled: true,
     updatedAt: "2026-04-11T08:00:00+00:00",
+  },
+];
+
+const mockLogs: NotificationLogItem[] = [
+  {
+    id: "log-0001",
+    channelId: "channel-0001",
+    eventType: "manual_test",
+    subject: "证证鸽测试提醒",
+    status: "dry-run",
+    detail: "演示环境使用模拟日志。",
+    createdAt: "2026-04-12T00:00:00+00:00",
   },
 ];
 
@@ -61,6 +93,18 @@ function normalizeChannel(record: ApiNotificationChannel, index = 0): Notificati
   };
 }
 
+function normalizeLog(record: ApiNotificationLog, index = 0): NotificationLogItem {
+  return {
+    id: toStringValue(record.log_id, `log-${index + 1}`),
+    channelId: toStringValue(record.channel_id, "unknown"),
+    eventType: toStringValue(record.event_type, "unknown"),
+    subject: toStringValue(record.subject, "未命名通知"),
+    status: toStringValue(record.status, "unknown"),
+    detail: toStringValue(record.detail, "无详情"),
+    createdAt: toStringValue(record.created_at, "待更新"),
+  };
+}
+
 export async function getNotificationChannels(): Promise<ListFetchResult<NotificationChannelItem>> {
   const payload = await fetchJsonOrUndefined<ApiNotificationList>("/notification-channels");
   const items = payload?.items;
@@ -71,6 +115,19 @@ export async function getNotificationChannels(): Promise<ListFetchResult<Notific
 
   return {
     items: items.map((item, index) => normalizeChannel(item, index)),
+    source: "api",
+  };
+}
+
+export async function getNotificationLogs(limit = 20): Promise<ListFetchResult<NotificationLogItem>> {
+  const items = await fetchJsonOrUndefined<ApiNotificationLog[]>(`/notification-channels/logs?limit=${limit}`);
+
+  if (!items?.length) {
+    return { items: mockLogs, source: "mock", note: buildDemoDataNote("通知日志") };
+  }
+
+  return {
+    items: items.map((item, index) => normalizeLog(item, index)),
     source: "api",
   };
 }

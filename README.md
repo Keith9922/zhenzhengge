@@ -7,7 +7,6 @@
 - `apps/web`: 主站 Landing Page 与工作台
 - `apps/extension`: 浏览器插件
 - `apps/api`: 后端 API、任务编排与文书服务
-- `packages/shared`: 共享类型与常量
 - `docs`: PRD、技术选型、架构与开发文档
 
 核心交付目标：
@@ -25,6 +24,7 @@
 - Web 构建：`pnpm build:web`
 - 插件构建：`pnpm build:extension`
 - API 测试：`pnpm test:api`
+- API 烟雾测试：`pnpm smoke:api`
 
 ## Web 运行时环境
 
@@ -36,3 +36,11 @@
 可参考：
 
 - `apps/web/.env.example`
+
+## API 运行时环境
+
+推荐通过 `uv` 管理 Python 依赖与运行时，不再依赖本地手动 `source .venv/bin/activate`。
+
+- 安装依赖：`uv --directory apps/api sync`
+- 启动 API：`pnpm dev:api`
+- 运行测试：`pnpm test:api`

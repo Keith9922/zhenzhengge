@@ -1,8 +1,14 @@
 from fastapi import APIRouter, Depends
 from fastapi import HTTPException
+from fastapi.responses import FileResponse, PlainTextResponse
 
 from app.api.deps import get_evidence_service, get_hermes_orchestrator, get_playwright_worker
-from app.schemas.evidence import EvidencePackCreateRequest, EvidencePackRecord, EvidencePackResponse
+from app.schemas.evidence import (
+    EvidencePackCreateRequest,
+    EvidencePackPreviewResponse,
+    EvidencePackRecord,
+    EvidencePackResponse,
+)
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
 from app.services.playwright import PlaywrightWorker
@@ -30,6 +36,72 @@ def get_evidence_pack(
     return item
 
 
+@router.get("/{evidence_pack_id}/preview", response_model=EvidencePackPreviewResponse, summary="证据包预览信息")
+def get_evidence_pack_preview(
+    evidence_pack_id: str,
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+) -> EvidencePackPreviewResponse:
+    item = evidence_service.get_pack(evidence_pack_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="证据包不存在")
+
+    html_content = evidence_service.read_html(item)
+    html_excerpt = html_content[:1200]
+    screenshot_available = evidence_service.has_screenshot(item)
+    html_available = bool(html_content)
+
+    return EvidencePackPreviewResponse(
+        item=item,
+        screenshot_available=screenshot_available,
+        html_available=html_available,
+        screenshot_url=(
+            f"/api/v1/evidence-packs/{evidence_pack_id}/artifacts/screenshot" if screenshot_available else None
+        ),
+        screenshot_download_url=(
+            f"/api/v1/evidence-packs/{evidence_pack_id}/artifacts/screenshot?download=1"
+            if screenshot_available
+            else None
+        ),
+        html_download_url=(
+            f"/api/v1/evidence-packs/{evidence_pack_id}/artifacts/html?download=1" if html_available else None
+        ),
+        html_excerpt=html_excerpt,
+    )
+
+
+@router.get("/{evidence_pack_id}/artifacts/html", response_class=PlainTextResponse, summary="查看或下载 HTML 归档")
+def get_evidence_pack_html_artifact(
+    evidence_pack_id: str,
+    download: bool = False,
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+):
+    item = evidence_service.get_pack(evidence_pack_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="证据包不存在")
+    html_path = evidence_service.resolve_html_path(item)
+    if not html_path.exists():
+        raise HTTPException(status_code=404, detail="HTML 归档不存在")
+    if download:
+        return FileResponse(html_path, media_type="text/html; charset=utf-8", filename=f"{evidence_pack_id}.html")
+    return PlainTextResponse(html_path.read_text(encoding="utf-8"))
+
+
+@router.get("/{evidence_pack_id}/artifacts/screenshot", response_class=FileResponse, summary="查看或下载截图归档")
+def get_evidence_pack_screenshot_artifact(
+    evidence_pack_id: str,
+    download: bool = False,
+    evidence_service: EvidenceService = Depends(get_evidence_service),
+):
+    item = evidence_service.get_pack(evidence_pack_id)
+    if item is None:
+        raise HTTPException(status_code=404, detail="证据包不存在")
+    screenshot_path = evidence_service.resolve_screenshot_path(item)
+    if not screenshot_path.exists() or screenshot_path.stat().st_size == 0:
+        raise HTTPException(status_code=404, detail="截图归档不存在")
+    filename = f"{evidence_pack_id}.png" if download else screenshot_path.name
+    return FileResponse(screenshot_path, media_type="image/png", filename=filename)
+
+
 @router.post("", response_model=EvidencePackResponse, summary="创建证据包")
 def create_evidence_pack(
     payload: EvidencePackCreateRequest,
@@ -37,8 +109,12 @@ def create_evidence_pack(
     hermes: HermesOrchestrator = Depends(get_hermes_orchestrator),
     playwright: PlaywrightWorker = Depends(get_playwright_worker),
 ) -> EvidencePackResponse:
-    # 这里先做最小闭环：记录证据包，后续由 Hermes / Playwright 承接真实抓取。
     _ = hermes.submit_capture_workflow(payload.case_id)
-    _ = playwright.capture(url=str(payload.source_url), title=payload.source_title)
+    capture = playwright.capture(url=str(payload.source_url), title=payload.source_title)
     record = evidence_service.create_pack(payload)
+    evidence_service.persist_capture_artifacts(
+        record,
+        raw_html=capture.html_content,
+        screenshot_bytes=capture.screenshot_bytes,
+    )
     return EvidencePackResponse(item=record)

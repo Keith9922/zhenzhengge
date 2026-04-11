@@ -1,248 +1,195 @@
-# 证证鸽 LLM 配置说明
+# 证证鸽 LLM 接入说明
 
 > 文档类型：后端大模型接入说明  
-> 版本：v0.1  
-> 更新时间：2026-04-11
+> 版本：v0.2  
+> 更新时间：2026-04-12
 
 ## 1. 当前状态
 
-当前项目**还没有真正接入大模型**。
+当前后端已经具备真实 LLM 接入入口，但默认仍可在 `stub` 模式下运行。
 
-这句话要说清楚：
+现状分层如下：
 
-- `apps/api` 是真的后端
-- `Hermes` 当前只是 stub 编排器
-- 还没有真实调用 OpenAI、MiniMax 或其他模型
-- 所以你现在**不需要登录大模型才能启动后端**
-- 但你如果想让 `Hermes / 文书生成 / 智能研判` 真正工作，就必须补模型接入
+- `FastAPI` 后端是真实可运行的
+- `HermesOrchestrator` 已经可以调用 LLM service
+- `LLM service` 支持 OpenAI 兼容客户端
+- 文书草稿和案件摘要已经有统一的 LLM 编排入口
+- 如果没有配置模型，系统会回退到本地模板文本，不会直接报死
 
-代码依据：
+这意味着：
 
-- [config.py](/Users/ronggang/code/funcode/mofa/apps/api/app/core/config.py)
-- [hermes.py](/Users/ronggang/code/funcode/mofa/apps/api/app/services/hermes.py)
-- [runtime.py](/Users/ronggang/code/funcode/mofa/apps/api/app/api/v1/endpoints/runtime.py)
+- 你可以先不配模型，继续开发和联调
+- 你一旦配置好 `provider / base_url / api_key / model`，Hermes 就可以真实调用模型
 
-其中 `HermesOrchestrator.health()` 目前返回的是：
+## 2. 支持的模型接入方式
 
-- `status = "stub"`
+当前实现走的是 **OpenAI 兼容协议**。
 
-这说明它现在不是一个真正的大模型驱动编排器。
+也就是说，只要你的模型平台支持以下调用方式，就可以接进来：
 
-## 2. 你的理解对一半
+- `chat.completions`
+- `api_key`
+- `base_url`
 
-你说“`Hermes Agent 需要大模型去驱动`”，这个方向是对的，但要区分两层：
+这类平台可以是：
 
-### 2.1 Hermes 不是“大模型本身”
+- 小米 MiMo Open Platform
+- OpenAI 官方平台
+- 任何 OpenAI-compatible 网关
 
-Hermes 更像：
+## 3. 配置项
 
-- 编排层
-- 工作流调度层
-- 任务组织层
-
-### 2.2 真正的智能能力来自模型调用
-
-比如这些能力，最终都要由模型支撑：
-
-- 疑似侵权描述整理
-- 风险摘要生成
-- 文书初稿生成
-- 结构化案件材料抽取
-
-所以更准确地说：
-
-> Hermes 负责组织流程，LLM 负责生成和理解。
-
-## 3. ChatGPT Plus 能不能直接当 API 用
-
-**不能。**
-
-你不能用 `ChatGPT Plus` 的网页登录态，直接拿来当 OpenAI API 的正式后端认证方案。
-
-官方帮助中心明确写了：
-
-- `ChatGPT Plus` 不包含 API 使用额度
-- `ChatGPT` 与 `API platform` 是两套独立的计费和账号体系
-
-官方来源：
-
-- OpenAI Help Center: `What is ChatGPT Plus?`  
-  https://help.openai.com/en/articles/6950777-chatgpt-plus
-- OpenAI Help Center: `Billing settings in ChatGPT vs Platform`  
-  https://help.openai.com/en/articles/9039756-billing-settings-in-chatgpt-vs-platform
-
-这两篇里关键信息是：
-
-- `API usage is separate and billed independently`
-- `The ChatGPT platform and the API platform operate as two separate platforms`
-
-所以结论很直接：
-
-### 不能做的事
-
-- 不要用 ChatGPT 网页 cookie / session 去伪装 API
-- 不要把 Plus 当成后端 API 授权方式
-- 不要依赖浏览器登录态做生产接入
-
-### 正确做法
-
-- 到 `platform.openai.com` 创建 API key
-- 在 API 平台单独开通 billing
-- 后端用标准 `OPENAI_API_KEY` 调 OpenAI API
-
-## 4. OpenAI 正确配置方式
-
-你如果要用 OpenAI 驱动证证鸽后端，建议这样配。
-
-### 4.1 你需要准备的东西
-
-1. OpenAI Platform 账号
-2. API key
-3. API 平台 billing
-4. 选定默认模型
-
-### 4.2 建议的环境变量
-
-建议在 `apps/api/.env` 里新增这些字段：
+后端使用以下环境变量：
 
 ```env
-ZHZG_LLM_PROVIDER=openai
-ZHZG_OPENAI_API_KEY=sk-...
-ZHZG_OPENAI_BASE_URL=https://api.openai.com/v1
-ZHZG_OPENAI_MODEL=gpt-5.4-mini
-ZHZG_OPENAI_REASONING_MODEL=gpt-5.4
+ZHZG_LLM_PROVIDER=mimo
+ZHZG_LLM_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
+ZHZG_LLM_API_KEY=你的_API_KEY
+ZHZG_LLM_MODEL=mimo-v2-pro
+ZHZG_LLM_REASONING_MODEL=o1-mini
+ZHZG_LLM_TTS_MODEL=
 ```
 
-如果你只先接一个模型，最小配置可以是：
+说明：
 
-```env
-ZHZG_LLM_PROVIDER=openai
-ZHZG_OPENAI_API_KEY=sk-...
-ZHZG_OPENAI_MODEL=gpt-5.4-mini
+- `ZHZG_LLM_PROVIDER`：提供方标识，建议写 `mimo`、`openai` 或 `openai-compatible`
+- `ZHZG_LLM_BASE_URL`：OpenAI 兼容接口地址，填你控制台实际给出的地址
+- `ZHZG_LLM_API_KEY`：密钥，**不要写进仓库**
+- `ZHZG_LLM_MODEL`：默认文本生成模型，当前推荐 `mimo-v2-pro`
+- `ZHZG_LLM_REASONING_MODEL`：案件摘要等推理型任务使用的模型，当前默认也可直接填 `mimo-v2-pro`
+- `ZHZG_LLM_TTS_MODEL`：TTS 预留位，当前主线还没接消费入口
+
+如果你使用的是 MiMo 官方文档里的另一个兼容地址，例如 `https://api.xiaomimimo.com/v1`，也可以直接替换，只要它保持 OpenAI 协议即可。
+
+当前本地开发已经验证过：
+
+- 使用 `OpenAI(api_key=..., base_url=...)` 可以真实访问 MiMo 接口
+- `mimo-v2-pro` 可正常返回 `chat.completions`
+- 网络被沙箱限制时会自动回退本地模板，不会打断主链路
+
+## 4. 安装依赖
+
+后端已经新增 OpenAI Python SDK 依赖：
+
+```toml
+openai>=1.0.0
 ```
 
-### 4.3 后端接入建议
+安装后，`OpenAI(...)` 客户端可以直接通过 `base_url` 连接到兼容网关。
 
-建议把模型调用分成单独服务，不要直接写死在 Hermes 里。
+## 5. Hermes 如何调用
 
-推荐结构：
+当前 Hermes 已经从纯 stub 编排器升级为可调用 LLM service 的入口，并已经接入：
 
-- `app/services/llm.py`
-- `app/services/hermes.py`
+- 案件摘要生成
+- 文书草稿生成
+- 文书工作流编排入口
 
-职责分工：
+代码层提供了两个核心方法：
 
-- `llm.py`：封装 OpenAI SDK 调用
-- `hermes.py`：组织取证、研判、文书生成流程
-
-## 5. 推荐的代码接入方式
-
-### 5.1 配置层
-
-在 [config.py](/Users/ronggang/code/funcode/mofa/apps/api/app/core/config.py) 增加：
-
-- `llm_provider`
-- `openai_api_key`
-- `openai_base_url`
-- `openai_model`
-
-### 5.2 新增 LLM Service
-
-建议新增：
-
-`apps/api/app/services/llm.py`
-
-里面做：
-
-- 客户端初始化
-- 统一 prompt 封装
-- 文书生成
-- 风险摘要生成
-
-### 5.3 Hermes 调用 LLM
-
-在 `HermesOrchestrator` 中增加：
-
-- `generate_risk_summary(...)`
+- `generate_case_summary(...)`
 - `generate_document_draft(...)`
 
-但注意：
+示例：
 
-- Hermes 不负责保存 key
-- Hermes 不负责用户认证
-- Hermes 只负责调 LLM service
+```python
+from app.services.hermes import HermesOrchestrator
 
-## 6. 第一阶段建议怎么用 OpenAI
+hermes = HermesOrchestrator()
 
-我建议第一阶段先只让 OpenAI 做两件事：
+summary = hermes.generate_case_summary(
+    case_context={
+        "title": "阿波达斯商品页疑似仿冒",
+        "brand_name": "阿迪达斯",
+        "suspect_name": "阿波达斯",
+        "platform": "淘宝",
+        "risk_level": "high",
+        "description": "商品页出现近似品牌名和混淆性展示。",
+    },
+    evidence_context=[
+        {
+            "source_title": "商品详情页",
+            "source_url": "https://example.com/listing",
+            "note": "页面存在近似命名",
+        }
+    ],
+)
 
-### 6.1 案件摘要生成
+print(summary.content)
+```
 
-输入：
+文书草稿示例：
 
-- 页面标题
-- 页面文本摘要
-- 品牌名
-- 疑似主体
-- 风险等级
+```python
+draft = hermes.generate_document_draft(
+    template_name="律师函",
+    case_context={
+        "title": "阿波达斯商品页疑似仿冒",
+        "brand_name": "阿迪达斯",
+        "suspect_name": "阿波达斯",
+        "platform": "淘宝",
+        "risk_level": "high",
+        "description": "页面中存在近似品牌名和仿冒展示。",
+    },
+    variables_override={
+        "contact": "法务部",
+        "deadline": "3 个工作日内",
+    },
+)
 
-输出：
+print(draft.content)
+```
 
-- 一段案件摘要
-- 一组研判要点
-- 一组建议动作
+当前默认路由是：
 
-### 6.2 文书初稿生成
+- 案件摘要优先走 `ZHZG_LLM_REASONING_MODEL`
+- 文书草稿优先走 `ZHZG_LLM_MODEL`
 
-输入：
+## 6. 生成策略
 
-- 模板类型
-- 案件结构化字段
-- 证据目录
+当前实现遵循以下原则：
 
-输出：
+- 模型配置可用且网络可达时，走真实 OpenAI-compatible 调用
+- 模型未配置时，走本地回退文本
+- 远程调用失败时，自动回退本地模板，避免把整个流程打断
 
-- 律师函初稿
-- 平台投诉函初稿
+这对黑客松和联调比较关键，因为它保证了：
 
-不要第一步就让模型做：
+- 没配模型时也能跑
+- 配上模型后能立刻看到真实差异
+- 出问题时不会把工作台整条链路打崩
 
-- 最终法律认定
-- 完整侵权判定
-- 自动正式举报
+## 7. 推荐模型选择
 
-## 7. 我对你当前方案的建议
+文本摘要和文书初稿，优先推荐：
 
-如果你想尽快接起来，最稳的是：
+- `mimo-v2-pro`
 
-1. 先保留现有 FastAPI + SQLite
-2. 补 `OpenAI API key` 到 `.env`
-3. 新增 `LLM service`
-4. 先接“案件摘要生成”和“文书初稿生成”
-5. 等这两块稳定，再把 Hermes 从 stub 改成真实编排
+推理型模型可以先保留：
 
-## 8. 这轮的实际判断
+- `o1-mini`
 
-直接回答你的问题：
+TTS 可以先作为后续扩展：
 
-### 目前后端是否真实有效？
+- 当前仓库已预留 `ZHZG_LLM_TTS_MODEL`
+- 但主线流程还没接语音输出
 
-**部分真实有效。**
+## 8. 接入边界
 
-- API 是真的
-- 数据库存储是真的
-- intake 创建案件和证据包是真的
-- Hermes 的“智能能力”目前不是真的
+当前 Hermes 负责的是编排，不是直接保存密钥，也不是用户开放聊天机器人。
 
-### 目前是否已经需要你登录大模型？
+你需要记住这几个边界：
 
-**不需要。**
+- API Key 只放在本地 `.env`
+- 不要提交到 Git
+- 不要在前端暴露
+- 不要把模型输出直接当最终法律结论
 
-因为现在项目还没有接真实 LLM。
+## 9. 验收标准
 
-### 如果你要让后端真的智能起来，是否必须配置 OpenAI API？
+接入完成后，满足以下条件即可视为 LLM 路线打通：
 
-**是。**
-
-而且要用 `platform.openai.com` 的 API key，不是 ChatGPT Plus 登录态。
-
+- `runtime/modules` 能看到 Hermes/LLM 处于 `ready`
+- Hermes 可以返回案件摘要文本
+- Hermes 可以返回文书草稿文本
+- 没配模型时依然能用本地回退文本完成联调

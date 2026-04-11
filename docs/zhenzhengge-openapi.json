@@ -344,6 +344,145 @@
         }
       }
     },
+    "/api/v1/evidence-packs/{evidence_pack_id}/preview": {
+      "get": {
+        "tags": [
+          "证据包"
+        ],
+        "summary": "证据包预览信息",
+        "operationId": "get_evidence_pack_preview_api_v1_evidence_packs__evidence_pack_id__preview_get",
+        "parameters": [
+          {
+            "name": "evidence_pack_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Pack Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EvidencePackPreviewResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evidence-packs/{evidence_pack_id}/artifacts/html": {
+      "get": {
+        "tags": [
+          "证据包"
+        ],
+        "summary": "查看或下载 HTML 归档",
+        "operationId": "get_evidence_pack_html_artifact_api_v1_evidence_packs__evidence_pack_id__artifacts_html_get",
+        "parameters": [
+          {
+            "name": "evidence_pack_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Pack Id"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Download"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/evidence-packs/{evidence_pack_id}/artifacts/screenshot": {
+      "get": {
+        "tags": [
+          "证据包"
+        ],
+        "summary": "查看或下载截图归档",
+        "operationId": "get_evidence_pack_screenshot_artifact_api_v1_evidence_packs__evidence_pack_id__artifacts_screenshot_get",
+        "parameters": [
+          {
+            "name": "evidence_pack_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Evidence Pack Id"
+            }
+          },
+          {
+            "name": "download",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Download"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/document-templates": {
       "get": {
         "tags": [
@@ -872,6 +1011,63 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ApiMessage"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/notification-channels/logs": {
+      "get": {
+        "tags": [
+          "通知配置"
+        ],
+        "summary": "通知日志列表",
+        "operationId": "list_logs_api_v1_notification_channels_logs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "anyOf": [
+                        {
+                          "type": "string"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  },
+                  "title": "Response List Logs Api V1 Notification Channels Logs Get"
                 }
               }
             }
@@ -1598,6 +1794,66 @@
           "source_title"
         ],
         "title": "EvidencePackCreateRequest"
+      },
+      "EvidencePackPreviewResponse": {
+        "properties": {
+          "item": {
+            "$ref": "#/components/schemas/EvidencePackRecord"
+          },
+          "screenshot_available": {
+            "type": "boolean",
+            "title": "Screenshot Available"
+          },
+          "html_available": {
+            "type": "boolean",
+            "title": "Html Available"
+          },
+          "screenshot_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Screenshot Url"
+          },
+          "screenshot_download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Screenshot Download Url"
+          },
+          "html_download_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Html Download Url"
+          },
+          "html_excerpt": {
+            "type": "string",
+            "title": "Html Excerpt",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "item",
+          "screenshot_available",
+          "html_available"
+        ],
+        "title": "EvidencePackPreviewResponse"
       },
       "EvidencePackRecord": {
         "properties": {

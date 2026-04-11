@@ -36,6 +36,23 @@ class NotificationAdapter:
     def get_channel(self, channel_id: str) -> NotificationChannelRecord | None:
         return self.storage.get_notification_channel(channel_id)
 
+    def list_logs(self, *, limit: int = 50) -> list[dict[str, str | None]]:
+        rows = self.storage.list_notification_logs(limit=limit)
+        return [
+            {
+                "log_id": row["log_id"],
+                "channel_id": row["channel_id"],
+                "task_id": row["task_id"],
+                "case_id": row["case_id"],
+                "event_type": row["event_type"],
+                "subject": row["subject"],
+                "status": row["status"],
+                "detail": row["detail"],
+                "created_at": row["created_at"],
+            }
+            for row in rows
+        ]
+
     def send_dingtalk(self, target: str, subject: str, body: str) -> dict[str, str]:
         if not target.startswith("http"):
             return {"channel": "dingtalk", "status": "dry-run", "detail": f"未配置有效 webhook：{subject}"}
@@ -75,10 +92,57 @@ class NotificationAdapter:
         if channel is None:
             raise ValueError("通知渠道不存在")
         if not channel.enabled:
-            return {"channel": channel.channel_type.value, "status": "disabled", "detail": "通知渠道已停用"}
-        if channel.channel_type.value == "dingtalk":
-            return self.send_dingtalk(channel.target, subject, body)
-        return self.send_email(channel.target, subject, body)
+            result = {"channel": channel.channel_type.value, "status": "disabled", "detail": "通知渠道已停用"}
+        elif channel.channel_type.value == "dingtalk":
+            result = self.send_dingtalk(channel.target, subject, body)
+        else:
+            result = self.send_email(channel.target, subject, body)
+        self.storage.create_notification_log(
+            channel_id=channel.channel_id,
+            event_type="manual_test",
+            subject=subject,
+            body=body,
+            status=result["status"],
+            detail=result["detail"],
+        )
+        return result
+
+    def notify_enabled_channels(
+        self,
+        *,
+        event_type: str,
+        subject: str,
+        body: str,
+        task_id: str | None = None,
+        case_id: str | None = None,
+    ) -> list[dict[str, str]]:
+        results: list[dict[str, str]] = []
+        for channel in self.list_channels():
+            if not channel.enabled:
+                continue
+            if channel.channel_type.value == "dingtalk":
+                result = self.send_dingtalk(channel.target, subject, body)
+            else:
+                result = self.send_email(channel.target, subject, body)
+            self.storage.create_notification_log(
+                channel_id=channel.channel_id,
+                task_id=task_id,
+                case_id=case_id,
+                event_type=event_type,
+                subject=subject,
+                body=body,
+                status=result["status"],
+                detail=result["detail"],
+            )
+            results.append(
+                {
+                    "channel_id": channel.channel_id,
+                    "channel_type": channel.channel_type.value,
+                    "status": result["status"],
+                    "detail": result["detail"],
+                }
+            )
+        return results
 
     def _with_dingtalk_signature(self, url: str) -> str:
         if "secret=" not in url:

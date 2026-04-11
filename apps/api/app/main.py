@@ -12,6 +12,7 @@ from app.services.cases import CaseService
 from app.services.drafts import DocumentDraftService
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
+from app.services.llm import OpenAICompatibleLLMService
 from app.services.notifications import NotificationAdapter
 from app.services.monitoring import MonitorTaskService
 from app.services.playwright import PlaywrightWorker
@@ -22,15 +23,19 @@ from app.services.templates import DocumentTemplateService
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     app.state.started_at = datetime.now(timezone.utc)
-    app.state.storage = SQLiteStorage(app.state.settings.database_url)
+    app.state.storage = SQLiteStorage(
+        app.state.settings.database_url,
+        seed_demo=app.state.settings.enable_demo_seed,
+    )
+    llm_service = OpenAICompatibleLLMService(app.state.settings)
     app.state.services = {
         "cases": CaseService(app.state.storage),
         "evidence": EvidenceService(app.state.storage),
         "templates": DocumentTemplateService(),
-        "monitoring": MonitorTaskService(app.state.storage),
-        "hermes": HermesOrchestrator(),
-        "playwright": PlaywrightWorker(),
+        "hermes": HermesOrchestrator(llm_service=llm_service),
+        "playwright": PlaywrightWorker(base_dir=app.state.storage.base_dir),
         "notifications": NotificationAdapter(app.state.storage, app.state.settings),
+        "monitoring": None,
         "intake": None,
         "drafts": None,
     }
@@ -38,6 +43,16 @@ async def lifespan(app: FastAPI):
         app.state.storage,
         case_service=app.state.services["cases"],
         template_service=app.state.services["templates"],
+        evidence_service=app.state.services["evidence"],
+        hermes=app.state.services["hermes"],
+    )
+    app.state.services["monitoring"] = MonitorTaskService(
+        app.state.storage,
+        case_service=app.state.services["cases"],
+        evidence_service=app.state.services["evidence"],
+        hermes=app.state.services["hermes"],
+        playwright=app.state.services["playwright"],
+        notifications=app.state.services["notifications"],
     )
     app.state.services["intake"] = IntakeService(
         case_service=app.state.services["cases"],

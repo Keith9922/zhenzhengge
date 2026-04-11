@@ -14,6 +14,11 @@ export type EvidencePackListItem = {
   snapshotPath?: string;
   htmlPath?: string;
   htmlSnippet?: string;
+  screenshotUrl?: string;
+  screenshotDownloadUrl?: string;
+  htmlDownloadUrl?: string;
+  screenshotAvailable?: boolean;
+  htmlAvailable?: boolean;
 };
 
 type ApiEvidencePack = {
@@ -27,6 +32,16 @@ type ApiEvidencePack = {
   snapshot_path?: string;
   html_path?: string;
   note?: string | null;
+};
+
+type ApiEvidencePreviewPayload = {
+  item?: ApiEvidencePack;
+  screenshot_available?: boolean;
+  html_available?: boolean;
+  screenshot_url?: string | null;
+  screenshot_download_url?: string | null;
+  html_download_url?: string | null;
+  html_excerpt?: string;
 };
 
 const sourceLabelMap: Record<string, string> = {
@@ -71,6 +86,17 @@ function toStringValue(value: unknown, fallback = "") {
   return typeof value === "string" && value.trim() ? value.trim() : fallback;
 }
 
+function toProxyAssetUrl(path: unknown) {
+  const raw = toStringValue(path);
+  if (!raw) {
+    return "";
+  }
+  if (raw.startsWith("/api/v1/")) {
+    return raw.replace("/api/v1/", "/api/proxy/");
+  }
+  return raw;
+}
+
 function toSourceLabel(value: unknown, fallback = "公开网页") {
   const normalized = toStringValue(value).toLowerCase();
   return sourceLabelMap[normalized] || toStringValue(value, fallback);
@@ -109,6 +135,8 @@ function normalizePack(record: ApiEvidencePack, index = 0): EvidencePackListItem
     snapshotPath: toStringValue(record.snapshot_path),
     htmlPath: toStringValue(record.html_path),
     htmlSnippet,
+    screenshotAvailable: Boolean(toStringValue(record.snapshot_path)),
+    htmlAvailable: Boolean(toStringValue(record.html_path)),
   };
 }
 
@@ -126,13 +154,24 @@ export async function getEvidencePacks(): Promise<ListFetchResult<EvidencePackLi
 }
 
 export async function getEvidencePackById(packId: string): Promise<DetailFetchResult<EvidencePackListItem>> {
-  const payload = await fetchJsonOrUndefined<ApiEvidencePack>(`/evidence-packs/${encodeURIComponent(packId)}`);
-  if (!payload) {
+  const preview = await fetchJsonOrUndefined<ApiEvidencePreviewPayload>(`/evidence-packs/${encodeURIComponent(packId)}/preview`);
+  if (!preview?.item) {
+    const payload = await fetchJsonOrUndefined<ApiEvidencePack>(`/evidence-packs/${encodeURIComponent(packId)}`);
+    if (payload) {
+      return { item: normalizePack(payload), source: "api" };
+    }
     const item = mockEvidencePacks.find((record) => record.id === packId);
     return item
       ? { item, source: "mock", note: buildDemoDataNote("证据包详情") }
       : { source: "error", note: "未找到对应证据包，当前无法展示真实数据。" };
   }
 
-  return { item: normalizePack(payload), source: "api" };
+  const item = normalizePack(preview.item);
+  item.screenshotAvailable = Boolean(preview.screenshot_available);
+  item.htmlAvailable = Boolean(preview.html_available);
+  item.screenshotUrl = toProxyAssetUrl(preview.screenshot_url);
+  item.screenshotDownloadUrl = toProxyAssetUrl(preview.screenshot_download_url);
+  item.htmlDownloadUrl = toProxyAssetUrl(preview.html_download_url);
+  item.htmlSnippet = toStringValue(preview.html_excerpt, item.htmlSnippet ?? "");
+  return { item, source: "api" };
 }

@@ -57,7 +57,20 @@ def run_monitor_task(
     task_id: str,
     service: MonitorTaskService = Depends(get_monitor_task_service),
 ) -> ApiMessage:
-    item = service.mark_run(task_id)
-    if item is None:
+    result = service.run_task(task_id)
+    if result is None:
         raise HTTPException(status_code=404, detail="监控任务不存在")
-    return ApiMessage(message=f"监控任务已执行：{item.name}")
+    if not result.matched:
+        return ApiMessage(message=f"监控任务已执行：{result.task.name}；{result.detail}")
+
+    case_id = result.case.case_id if result.case else "unknown"
+    evidence_pack_id = result.evidence_pack.evidence_pack_id if result.evidence_pack else "unknown"
+    return ApiMessage(
+        message=(
+            f"监控命中：{result.task.name}；"
+            f"risk={result.risk_score}；"
+            f"case={case_id}；"
+            f"evidence={evidence_pack_id}；"
+            f"notifications={result.notifications_sent}"
+        )
+    )
