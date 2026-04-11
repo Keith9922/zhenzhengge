@@ -79,7 +79,7 @@ function buildCasesEndpoint(path = "") {
     return "";
   }
 
-  const normalizedPath = path ? `/${path.replace(/^\/+/, "")}` : "";
+  const normalizedPath = path ? `/${path.replace(/^\/+/, "")}` : "/cases";
   return `${baseUrl}${normalizedPath}`;
 }
 
@@ -147,7 +147,7 @@ export async function getCases() {
 }
 
 export async function getCaseById(caseId: string) {
-  const endpoint = buildCasesEndpoint(encodeURIComponent(caseId));
+  const endpoint = buildCasesEndpoint(`cases/${encodeURIComponent(caseId)}`);
   if (endpoint) {
     try {
       const controller = new AbortController();
