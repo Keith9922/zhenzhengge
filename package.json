@@ -6,6 +6,10 @@
   "scripts": {
     "dev:web": "pnpm --dir apps/web dev",
     "build:web": "pnpm --dir apps/web build",
-    "lint:web": "pnpm --dir apps/web lint"
+    "lint:web": "pnpm --dir apps/web lint",
+    "dev:extension": "pnpm --dir apps/extension dev",
+    "build:extension": "pnpm --dir apps/extension build",
+    "dev:api": "cd apps/api && source .venv/bin/activate && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000",
+    "test:api": "cd apps/api && source .venv/bin/activate && pytest -q"
   }
 }

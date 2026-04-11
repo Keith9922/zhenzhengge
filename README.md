@@ -16,3 +16,12 @@
 2. 主站：Landing Page、文档入口、工作台入口
 3. 工作台：案件、证据包、风险分析、文书生成与审核
 4. 后端：抓取、比对、通知、文书、Hermes 工作流编排
+
+## 开发命令
+
+- Web 主站与工作台：`pnpm dev:web`
+- 浏览器插件：`pnpm dev:extension`
+- 后端 API：`pnpm dev:api`
+- Web 构建：`pnpm build:web`
+- 插件构建：`pnpm build:extension`
+- API 测试：`pnpm test:api`
