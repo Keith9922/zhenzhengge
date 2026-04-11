@@ -120,6 +120,7 @@
 - 已支持 demo seed 环境开关
 - 已接入 MiMo OpenAI 兼容大模型调用
 - 已支持真实 Playwright / HTTP 回退抓取
+- 已接入项目内 `HermesOrchestrator` 作为后端编排中枢
 
 ## 2.5 Git 管理
 
@@ -162,7 +163,7 @@
 
 ### P2 缺口
 
-- Hermes 完整编排接入
+- 官方 `NousResearch/hermes-agent` gateway/runtime 尚未直接接入，当前使用项目内编排器
 - 历史案例驱动优化
 - 飞书 / 企业微信扩展
 - 海外站点扩展

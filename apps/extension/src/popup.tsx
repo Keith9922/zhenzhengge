@@ -318,11 +318,15 @@ export default function Popup() {
         </div>
         <div style={styles.row}>
           <span style={styles.label}>页面正文</span>
-          <span style={styles.value}>{draft?.pageText ? "已采集" : "未采集或为空"}</span>
+          <span style={styles.value}>
+            {draft?.pageText ? `已采集（${draft.pageText.length} 字）` : "未采集或为空"}
+          </span>
         </div>
         <div style={styles.row}>
           <span style={styles.label}>页面 HTML</span>
-          <span style={styles.value}>{draft?.rawHtml ? "已采集" : "未采集或为空"}</span>
+          <span style={styles.value}>
+            {draft?.rawHtml ? `已采集（${draft.rawHtml.length} 字符）` : "未采集或为空"}
+          </span>
         </div>
         <div style={styles.row}>
           <span style={styles.label}>可视区截图</span>
@@ -333,6 +337,25 @@ export default function Popup() {
           <span style={styles.value}>{status}</span>
         </div>
       </section>
+
+      {draft?.screenshotBase64 ? (
+        <section style={styles.card}>
+          <div style={styles.previewHeader}>
+            <div style={styles.previewTitle}>截图预览</div>
+            <div style={styles.previewMeta}>当前页面可视区</div>
+          </div>
+          <img alt="当前页面截图预览" src={draft.screenshotBase64} style={styles.previewImage} />
+        </section>
+      ) : null}
+
+      {caseId && evidencePackId ? (
+        <section style={styles.successCard}>
+          <div style={styles.successTitle}>取证提交成功</div>
+          <p style={styles.successText}>
+            当前页面已经生成案件与证据包，后续可以直接进入工作台继续查看证据、草稿和处理进展。
+          </p>
+        </section>
+      ) : null}
 
       {draft?.captureWarnings?.length ? (
         <section style={styles.warningCard}>
@@ -469,6 +492,50 @@ const styles: Record<string, CSSProperties> = {
     borderRadius: 14,
     background: "#fff7ed",
     border: "1px solid rgba(249, 115, 22, 0.22)"
+  },
+  successCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 14,
+    background: "#ecfdf5",
+    border: "1px solid rgba(16, 185, 129, 0.22)"
+  },
+  successTitle: {
+    marginBottom: 6,
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#047857"
+  },
+  successText: {
+    margin: 0,
+    fontSize: 12,
+    lineHeight: 1.6,
+    color: "#065f46"
+  },
+  previewHeader: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: 12,
+    marginBottom: 10
+  },
+  previewTitle: {
+    fontSize: 12,
+    fontWeight: 700,
+    color: "#0f172a"
+  },
+  previewMeta: {
+    fontSize: 12,
+    color: "#64748b"
+  },
+  previewImage: {
+    display: "block",
+    width: "100%",
+    maxHeight: 180,
+    objectFit: "cover",
+    borderRadius: 12,
+    border: "1px solid rgba(148, 163, 184, 0.24)",
+    background: "#f8fafc"
   },
   warningTitle: {
     marginBottom: 8,

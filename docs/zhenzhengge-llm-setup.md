@@ -21,6 +21,13 @@
 - 你可以先不配模型，继续开发和联调
 - 你一旦配置好 `provider / base_url / api_key / model`，Hermes 就可以真实调用模型
 
+补充说明：
+
+- 当前仓库里使用的是项目内的 `HermesOrchestrator`
+- 它负责后端编排、任务串联和模型调用入口
+- 目前**没有**把 `NousResearch/hermes-agent` 官方 gateway/runtime 直接 vendor 进本仓库
+- 对比赛版本来说，这种收敛更稳，后续如果需要再扩成官方 Hermes Agent 形态
+
 ## 2. 支持的模型接入方式
 
 当前实现走的是 **OpenAI 兼容协议**。

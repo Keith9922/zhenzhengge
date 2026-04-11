@@ -50,6 +50,9 @@ class PlaywrightWorker:
         html_file = self.capture_dir / f"{capture_slug}.html"
         screenshot_file = self.capture_dir / f"{capture_slug}.png"
 
+        if self._looks_like_example_domain(url):
+            return self._capture_via_http(url=url, title=title, html_file=html_file, screenshot_file=screenshot_file)
+
         if sync_playwright is None:
             return self._capture_via_http(url=url, title=title, html_file=html_file, screenshot_file=screenshot_file)
 

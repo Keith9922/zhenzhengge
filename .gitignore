@@ -16,6 +16,7 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 *.pyc
+*.egg-info/
 apps/api/data/
 
 # Env
@@ -36,6 +37,8 @@ output/playwright/
 tmp/generated/
 tmp/
 .playwright-mcp/
+.cursor/
+.vscode/
 
 # Playwright
 playwright-report/

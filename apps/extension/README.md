@@ -28,11 +28,12 @@ pnpm pack
 复制 `.env.example` 为 `.env`，配置：
 
 ```bash
-PLASMO_PUBLIC_API_BASE_URL=http://localhost:8000
-PLASMO_PUBLIC_WEB_BASE_URL=http://localhost:3000
+PLASMO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
+PLASMO_PUBLIC_WEB_BASE_URL=http://127.0.0.1:3006
+PLASMO_PUBLIC_ALLOW_SIMULATED_SUBMISSION=false
 ```
 
-如果暂时不配置，插件会退回到本地模拟提交模式。
+如果不配置 API 地址，且允许模拟提交，插件会退回到本地模拟提交模式。正式联调时建议显式关闭模拟提交。
 
 ## 默认提交接口
 
@@ -58,7 +59,7 @@ PLASMO_PUBLIC_WEB_BASE_URL=http://localhost:3000
 
 ## 提交结果
 
-如果后端返回 `caseId` 和 `evidencePackId`，插件会直接展示它们。
+如果后端返回 `case.case_id` 和 `evidence_pack.evidence_pack_id`，插件会直接展示它们。
 如果配置了 `PLASMO_PUBLIC_WEB_BASE_URL`，还会显示“打开案件详情”按钮，跳转到：
 
 ```bash

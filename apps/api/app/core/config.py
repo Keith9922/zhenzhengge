@@ -11,8 +11,12 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     enable_docs: bool = True
     database_url: str = "sqlite:///./data/zhenzhengge.db"
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3000"])
-    cors_origin_regex: str = r"^chrome-extension://.*$|^http://localhost:(3000|3001)$|^http://127\.0\.0\.1:(3000|3001)$"
+    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3006", "http://127.0.0.1:3006"])
+    cors_origin_regex: str = (
+        r"^chrome-extension://.*$|"
+        r"^http://localhost:(3000|3001|3006)$|"
+        r"^http://127\.0\.0\.1:(3000|3001|3006)$"
+    )
     service_tag: str = "zhenzhengge-api"
     enable_demo_seed: bool = True
     llm_provider: str = "stub"
