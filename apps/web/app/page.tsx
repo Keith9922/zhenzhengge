@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, BookOpen, ExternalLink, ShieldCheck } from "lucide-react";
 import { FeatureCard } from "@/components/feature-card";
+import { LogoMark } from "@/components/logo";
 import { SectionHeading } from "@/components/section-heading";
 import { SiteHeader } from "@/components/site-header";
 import { docsIndex, getRepoUrl, productHighlights, workflowSteps } from "@/lib/site";
@@ -13,8 +14,9 @@ export default function HomePage() {
         <section className="noise">
           <div className="mx-auto grid max-w-7xl gap-14 px-6 py-16 lg:grid-cols-[1.15fr_0.85fr] lg:px-8 lg:py-24">
             <div className="max-w-3xl">
-              <span className="inline-flex items-center rounded-full border border-brand-100 bg-brand-50 px-4 py-1 text-sm font-medium text-brand-700">
-                证证鸽 · 取证、固证、预警、文书辅助
+              <span className="inline-flex items-center gap-3 rounded-full border border-brand-100 bg-white/90 px-3 py-2 text-sm font-medium text-brand-700 shadow-soft">
+                <LogoMark className="h-8 w-8" />
+                <span>证证鸽 · 取证、固证、预警、文书辅助</span>
               </span>
               <h1 className="mt-6 text-5xl font-semibold tracking-tight text-ink sm:text-6xl">
                 让疑似侵权页面

@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { LogoMark } from "@/components/logo";
 import { workspaceNav } from "@/lib/site";
 
 export function WorkspaceShell({
@@ -15,9 +16,12 @@ export function WorkspaceShell({
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <div className="border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
-          <div>
-            <p className="text-sm font-semibold text-brand-700">证证鸽工作台</p>
-            <p className="text-xs text-slate-500">案件、证据包、模板与审核流</p>
+          <div className="flex items-center gap-3">
+            <LogoMark className="h-11 w-11" />
+            <div>
+              <p className="text-sm font-semibold text-brand-700">证证鸽工作台</p>
+              <p className="text-xs text-slate-500">案件、证据包、模板与审核流</p>
+            </div>
           </div>
           <Link href="/" className="text-sm font-medium text-slate-600 hover:text-ink">
             返回主站
