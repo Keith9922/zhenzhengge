@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LogoMark } from "@/components/logo";
+import { LogoFull } from "@/components/logo";
 
 const navItems = [
   { href: "#workflow", label: "功能链路" },
@@ -12,11 +12,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40 border-b border-white/50 bg-white/70 backdrop-blur-xl">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-4 lg:px-8">
         <Link href="/" className="flex items-center gap-3">
-          <LogoMark className="h-11 w-11" />
-          <div>
-            <p className="text-sm font-semibold text-ink">证证鸽</p>
-            <p className="text-xs text-slate-500">侵权取证与处置工作台</p>
-          </div>
+          <LogoFull className="h-12 w-[18rem]" priority />
         </Link>
         <nav className="hidden items-center gap-6 md:flex">
           {navItems.map((item) => (
