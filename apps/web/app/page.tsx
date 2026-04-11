@@ -1,0 +1,193 @@
+import Link from "next/link";
+import { ArrowRight, BookOpen, ExternalLink, ShieldCheck } from "lucide-react";
+import { FeatureCard } from "@/components/feature-card";
+import { SectionHeading } from "@/components/section-heading";
+import { SiteHeader } from "@/components/site-header";
+import { docsIndex, productHighlights, workflowSteps } from "@/lib/site";
+
+export default function HomePage() {
+  return (
+    <div className="min-h-screen text-ink">
+      <SiteHeader />
+      <main>
+        <section className="noise">
+          <div className="mx-auto grid max-w-7xl gap-14 px-6 py-16 lg:grid-cols-[1.15fr_0.85fr] lg:px-8 lg:py-24">
+            <div className="max-w-3xl">
+              <span className="inline-flex items-center rounded-full border border-brand-100 bg-brand-50 px-4 py-1 text-sm font-medium text-brand-700">
+                证证鸽 · 取证、固证、预警、文书辅助
+              </span>
+              <h1 className="mt-6 text-5xl font-semibold tracking-tight text-ink sm:text-6xl">
+                让疑似侵权页面
+                <span className="block text-brand-700">更快变成可行动的证据</span>
+              </h1>
+              <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
+                证证鸽面向知识产权侵权响应场景，提供一键取证、自动固证、风险分析、消息推送和文书初稿生成，帮助品牌方和法务团队把零散网页快速转成标准化案件材料。
+              </p>
+              <div className="mt-8 flex flex-wrap gap-3">
+                <Link
+                  href="/workspace"
+                  className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-medium text-white transition hover:bg-slate-800"
+                >
+                  进入工作台
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <a
+                  href="#docs"
+                  className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:text-ink"
+                >
+                  查看文档入口
+                  <BookOpen className="h-4 w-4" />
+                </a>
+              </div>
+              <div className="mt-10 grid gap-4 sm:grid-cols-3">
+                {[
+                  "插件取证",
+                  "后台巡检",
+                  "文书审核",
+                ].map((item) => (
+                  <div key={item} className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-soft">
+                    <p className="text-sm font-semibold text-ink">{item}</p>
+                    <p className="mt-1 text-xs text-slate-500">围绕案件链路逐步展开</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 -z-10 rounded-[2rem] bg-brand-100/40 blur-3xl" />
+              <div className="rounded-[2rem] border border-white/80 bg-white/80 p-6 shadow-soft backdrop-blur">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-semibold text-brand-700">产品链路</p>
+                    <p className="text-xs text-slate-500">主动取证 / 自动监测 / 文书辅助</p>
+                  </div>
+                  <div className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
+                    受控智能
+                  </div>
+                </div>
+                <div className="mt-6 space-y-4">
+                  {workflowSteps.slice(0, 4).map((step, index) => (
+                    <div key={step.title} className="flex gap-4 rounded-2xl bg-slate-50 px-4 py-4">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-semibold text-white">
+                        {index + 1}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-ink">{step.title}</p>
+                        <p className="mt-1 text-sm leading-6 text-slate-600">{step.detail}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-ink">
+                    <ShieldCheck className="h-4 w-4 text-brand-700" />
+                    文案边界
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    统一使用“疑似侵权内容”“高风险侵权线索”“建议人工复核”等表述，不直接输出最终法律结论。
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
+          <SectionHeading
+            eyebrow="核心能力"
+            title="先把证据链路跑通，再进入文书与审核"
+            description="初版重心放在取证固证，文书和举报材料作为后续连带能力，保证产品闭环完整但范围可控。"
+          />
+          <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {productHighlights.map((item) => (
+              <FeatureCard key={item.title} {...item} />
+            ))}
+          </div>
+        </section>
+
+        <section id="workflow" className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+          <SectionHeading
+            eyebrow="功能链路"
+            title="主动取证与自动监测共用同一套案件工作流"
+            description="主站不是展示页，而是进入工作台和证据处理流程的统一入口。"
+          />
+          <div className="mt-8 grid gap-4 lg:grid-cols-2">
+            {workflowSteps.map((step, index) => (
+              <div key={step.title} className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-soft">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-600 text-sm font-semibold text-white">
+                    {index + 1}
+                  </div>
+                  <h3 className="text-lg font-semibold text-ink">{step.title}</h3>
+                </div>
+                <p className="mt-4 text-sm leading-7 text-slate-600">{step.detail}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section id="docs" className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+          <SectionHeading
+            eyebrow="文档入口"
+            title="开发对齐先看这三份基线文档"
+            description="Landing Page 也承担资料入口职责，帮助产品、设计和开发在同一份基线上推进。"
+          />
+          <div className="mt-8 grid gap-5 lg:grid-cols-3">
+            {docsIndex.map((doc) => (
+              <a
+                key={doc.title}
+                href={doc.href}
+                className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-soft transition hover:-translate-y-1 hover:border-brand-200"
+              >
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-ink">{doc.title}</h3>
+                  <ExternalLink className="h-4 w-4 text-slate-400" />
+                </div>
+                <p className="mt-3 text-sm leading-6 text-slate-600">{doc.summary}</p>
+              </a>
+            ))}
+          </div>
+          <div className="mt-6 flex flex-wrap gap-3">
+            <Link
+              href="/docs"
+              className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-5 py-3 text-sm font-medium text-slate-700 transition hover:border-brand-300 hover:text-ink"
+            >
+              打开资料中心
+            </Link>
+            <span className="inline-flex items-center rounded-full bg-brand-50 px-4 py-3 text-sm font-medium text-brand-700">
+              仓库入口后续可对接 GitHub 仓库地址
+            </span>
+          </div>
+        </section>
+
+        <section id="workspace" className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
+          <div className="rounded-[2rem] border border-slate-200 bg-ink px-8 py-10 text-white shadow-soft">
+            <div className="max-w-3xl">
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-200">工作台入口</p>
+              <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
+                从主站进入工作台，继续处理案件、模板和审核流
+              </h2>
+              <p className="mt-4 text-base leading-7 text-slate-300">
+                当前版本已预留案件、证据包、模板和设置四个基础页面，后续接口、数据库和联调任务会围绕这个工作台骨架展开。
+              </p>
+            </div>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link
+                href="/workspace"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-medium text-ink transition hover:bg-slate-100"
+              >
+                进入工作台
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/workspace/cases"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-5 py-3 text-sm font-medium text-white transition hover:bg-white/10"
+              >
+                查看案件页
+              </Link>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  );
+}
