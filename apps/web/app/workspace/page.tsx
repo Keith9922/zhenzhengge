@@ -19,6 +19,12 @@ export default function WorkspaceHomePage() {
           <Link href="/workspace/cases" className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white">
             查看案件
           </Link>
+          <Link href="/workspace/evidence-packs" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+            查看证据包
+          </Link>
+          <Link href="/workspace/drafts" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+            查看草稿
+          </Link>
           <Link href="/workspace/templates" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
             管理模板
           </Link>

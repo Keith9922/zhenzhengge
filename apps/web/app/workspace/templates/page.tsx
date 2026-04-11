@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const templates = [
   {
     name: "律师函",
@@ -28,6 +30,17 @@ export default function TemplatesPage() {
             <p className="mt-3 text-sm leading-6 text-slate-600">{item.desc}</p>
           </article>
         ))}
+      </div>
+      <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-ink">继续生成草稿</h2>
+            <p className="mt-2 text-sm leading-6 text-slate-600">模板目录用于选型，真正的生成与审核在草稿页内进行。</p>
+          </div>
+          <Link href="/workspace/drafts" className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white">
+            前往草稿页
+          </Link>
+        </div>
       </div>
     </section>
   );

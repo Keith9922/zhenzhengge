@@ -74,6 +74,14 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
                       </span>
                     ))}
                   </div>
+                  <div className="mt-4">
+                    <Link
+                      href={`/workspace/evidence-packs/${pack.id}`}
+                      className="text-sm font-medium text-brand-700 hover:text-brand-800"
+                    >
+                      查看证据包详情
+                    </Link>
+                  </div>
                 </article>
               ))
             ) : (
@@ -124,6 +132,9 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
       <div className="flex flex-wrap gap-3">
         <Link href="/workspace/cases" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
           返回案件列表
+        </Link>
+        <Link href={`/workspace/drafts?caseId=${item.id}`} className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+          去草稿页
         </Link>
         <Link href="/workspace/templates" className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white">
           去模板页

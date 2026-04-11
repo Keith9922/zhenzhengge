@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 const settings = [
   {
     title: "监控范围",
@@ -10,6 +12,10 @@ const settings = [
   {
     title: "资料查看",
     value: "统一查看产品资料、适用场景和能力边界",
+  },
+  {
+    title: "接收方式",
+    value: "管理处理提醒的默认接收入口与测试动作",
   },
 ];
 
@@ -28,6 +34,14 @@ export default function SettingsPage() {
             <p className="mt-3 text-lg font-semibold text-ink">{item.value}</p>
           </article>
         ))}
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Link href="/workspace/monitoring" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+          管理监控任务
+        </Link>
+        <Link href="/workspace/notifications" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+          管理接收方式
+        </Link>
       </div>
     </section>
   );
