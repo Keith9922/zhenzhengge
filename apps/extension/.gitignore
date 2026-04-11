@@ -1,0 +1,10 @@
+.plasmo/
+node_modules/
+dist/
+build/
+coverage/
+playwright-report/
+test-results/
+.env
+.env.local
+.env.*.local
