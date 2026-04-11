@@ -9,6 +9,7 @@ type EvidenceDraft = {
   pageText: string
   rawHtml: string
   screenshotBase64: string
+  screenshotMode: "full-page" | "viewport" | "none"
   captureWarnings: string[]
 }
 
@@ -37,6 +38,7 @@ async function getActiveTabDraft(): Promise<EvidenceDraft> {
   let pageText = ""
   let rawHtml = ""
   let screenshotBase64 = ""
+  let screenshotMode: EvidenceDraft["screenshotMode"] = "none"
 
   if (typeof tabId === "number") {
     try {
@@ -62,13 +64,10 @@ async function getActiveTabDraft(): Promise<EvidenceDraft> {
       )
     }
 
-    try {
-      screenshotBase64 = await captureVisibleTabBase64()
-    } catch (error) {
-      captureWarnings.push(
-        `可视区截图失败：${error instanceof Error ? error.message : "unknown error"}`
-      )
-    }
+    const screenshotResult = await capturePageScreenshot(tabId)
+    screenshotBase64 = screenshotResult.screenshotBase64
+    screenshotMode = screenshotResult.mode
+    captureWarnings.push(...screenshotResult.captureWarnings)
   } else {
     captureWarnings.push("未获取到有效标签页 ID，跳过页面注入和截图采集。")
   }
@@ -81,6 +80,7 @@ async function getActiveTabDraft(): Promise<EvidenceDraft> {
     pageText,
     rawHtml,
     screenshotBase64,
+    screenshotMode,
     captureWarnings
   }
 }
@@ -97,6 +97,209 @@ async function captureVisibleTabBase64(): Promise<string> {
   })
 
   return screenshot ?? ""
+}
+
+type ScreenshotResult = {
+  screenshotBase64: string
+  mode: EvidenceDraft["screenshotMode"]
+  captureWarnings: string[]
+}
+
+type PageMetrics = {
+  scrollWidth: number
+  scrollHeight: number
+  viewportWidth: number
+  viewportHeight: number
+  devicePixelRatio: number
+  originalX: number
+  originalY: number
+}
+
+async function capturePageScreenshot(tabId: number): Promise<ScreenshotResult> {
+  const captureWarnings: string[] = []
+
+  try {
+    const metrics = await getPageMetrics(tabId)
+    if (!metrics) {
+      throw new Error("未能读取页面尺寸信息")
+    }
+
+    const maxHeight = 12000
+    const targetHeight = Math.min(metrics.scrollHeight, maxHeight)
+    if (metrics.scrollHeight > maxHeight) {
+      captureWarnings.push(`页面高度超过 ${maxHeight}px，整页截图已按上限截取。`)
+    }
+
+    const screenshotBase64 = await captureFullPageByScrolling(tabId, {
+      ...metrics,
+      scrollHeight: targetHeight
+    })
+    if (!screenshotBase64) {
+      throw new Error("整页截图结果为空")
+    }
+
+    return {
+      screenshotBase64,
+      mode: "full-page",
+      captureWarnings
+    }
+  } catch (error) {
+    captureWarnings.push(
+      `整页截图失败，已回退可视区截图：${error instanceof Error ? error.message : "unknown error"}`
+    )
+
+    try {
+      return {
+        screenshotBase64: await captureVisibleTabBase64(),
+        mode: "viewport",
+        captureWarnings
+      }
+    } catch (viewportError) {
+      captureWarnings.push(
+        `可视区截图失败：${viewportError instanceof Error ? viewportError.message : "unknown error"}`
+      )
+      return {
+        screenshotBase64: "",
+        mode: "none",
+        captureWarnings
+      }
+    }
+  }
+}
+
+async function getPageMetrics(tabId: number): Promise<PageMetrics | null> {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => {
+      const scrolling = document.scrollingElement || document.documentElement
+      return {
+        scrollWidth: Math.max(scrolling?.scrollWidth || 0, document.documentElement.scrollWidth, window.innerWidth),
+        scrollHeight: Math.max(
+          scrolling?.scrollHeight || 0,
+          document.documentElement.scrollHeight,
+          window.innerHeight
+        ),
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio || 1,
+        originalX: window.scrollX,
+        originalY: window.scrollY
+      }
+    }
+  })
+
+  return (results?.[0]?.result as PageMetrics | null) ?? null
+}
+
+async function scrollPageTo(tabId: number, x: number, y: number) {
+  const results = await chrome.scripting.executeScript({
+    target: { tabId },
+    args: [x, y],
+    func: (targetX: number, targetY: number) => {
+      const previousBehavior = document.documentElement.style.scrollBehavior
+      document.documentElement.style.scrollBehavior = "auto"
+      window.scrollTo(targetX, targetY)
+      document.documentElement.style.scrollBehavior = previousBehavior
+      return {
+        x: window.scrollX,
+        y: window.scrollY
+      }
+    }
+  })
+
+  return (results?.[0]?.result as { x: number; y: number } | undefined) ?? { x, y }
+}
+
+async function restorePageScroll(tabId: number, x: number, y: number) {
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      args: [x, y],
+      func: (targetX: number, targetY: number) => {
+        const previousBehavior = document.documentElement.style.scrollBehavior
+        document.documentElement.style.scrollBehavior = "auto"
+        window.scrollTo(targetX, targetY)
+        document.documentElement.style.scrollBehavior = previousBehavior
+      }
+    })
+  } catch {
+    // ignore restore failure
+  }
+}
+
+async function captureFullPageByScrolling(tabId: number, metrics: PageMetrics): Promise<string> {
+  const ratio = Math.max(1, metrics.devicePixelRatio || 1)
+  const canvas = document.createElement("canvas")
+  canvas.width = Math.max(1, Math.round(metrics.viewportWidth * ratio))
+  canvas.height = Math.max(1, Math.round(metrics.scrollHeight * ratio))
+
+  const context = canvas.getContext("2d")
+  if (!context) {
+    throw new Error("无法创建整页截图画布")
+  }
+
+  const positions: number[] = []
+  for (let top = 0; top < metrics.scrollHeight; top += metrics.viewportHeight) {
+    positions.push(top)
+  }
+  if (positions.length === 0) {
+    positions.push(0)
+  }
+
+  const drawnOffsets = new Set<number>()
+
+  try {
+    for (const top of positions) {
+      const actual = await scrollPageTo(tabId, 0, top)
+      await delay(180)
+      const dataUrl = await captureVisibleTabBase64()
+      if (!dataUrl) {
+        continue
+      }
+
+      const offsetY = Math.max(0, Math.round(actual.y * ratio))
+      if (drawnOffsets.has(offsetY)) {
+        continue
+      }
+      drawnOffsets.add(offsetY)
+
+      const image = await loadImage(dataUrl)
+      const remainingHeight = canvas.height - offsetY
+      if (remainingHeight <= 0) {
+        continue
+      }
+
+      const drawHeight = Math.min(image.height, remainingHeight)
+      context.drawImage(
+        image,
+        0,
+        0,
+        image.width,
+        drawHeight,
+        0,
+        offsetY,
+        canvas.width,
+        drawHeight
+      )
+    }
+  } finally {
+    await restorePageScroll(tabId, metrics.originalX, metrics.originalY)
+  }
+
+  return canvas.toDataURL("image/png")
+}
+
+async function loadImage(dataUrl: string): Promise<HTMLImageElement> {
+  return await new Promise((resolve, reject) => {
+    const image = new Image()
+    image.onload = () => resolve(image)
+    image.onerror = () => reject(new Error("截图图像加载失败"))
+    image.src = dataUrl
+  })
+}
+
+async function delay(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms))
 }
 
 function buildIntakePayload(draft: EvidenceDraft, requestId: string) {
@@ -238,7 +441,19 @@ export default function Popup() {
       return "等待采集"
     }
 
-    return draft.screenshotBase64 ? "已采集可视区截图" : "截图未获取，已降级"
+    if (!draft.screenshotBase64) {
+      return "截图未获取，已降级"
+    }
+
+    if (draft.screenshotMode === "full-page") {
+      return "已采集整页截图"
+    }
+
+    if (draft.screenshotMode === "viewport") {
+      return "已采集可视区截图"
+    }
+
+    return "已采集截图"
   }, [draft])
 
   const handleCapture = async () => {
@@ -342,7 +557,9 @@ export default function Popup() {
         <section style={styles.card}>
           <div style={styles.previewHeader}>
             <div style={styles.previewTitle}>截图预览</div>
-            <div style={styles.previewMeta}>当前页面可视区</div>
+            <div style={styles.previewMeta}>
+              {draft.screenshotMode === "full-page" ? "滚动拼接整页截图" : "当前页面可视区"}
+            </div>
           </div>
           <img alt="当前页面截图预览" src={draft.screenshotBase64} style={styles.previewImage} />
         </section>
