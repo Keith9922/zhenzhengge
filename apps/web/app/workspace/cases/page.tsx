@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { getCases } from "@/lib/cases";
 
+export const dynamic = "force-dynamic";
+
 export default async function CasesPage() {
   const { items, source } = await getCases();
 

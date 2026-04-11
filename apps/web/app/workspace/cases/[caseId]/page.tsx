@@ -2,6 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCaseById } from "@/lib/cases";
 
+export const dynamic = "force-dynamic";
+
 type CaseDetailPageProps = {
   params: Promise<{ caseId: string }>;
 };
