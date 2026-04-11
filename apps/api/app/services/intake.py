@@ -51,8 +51,8 @@ class IntakeService:
             note=payload.request_id,
             capture_channel=payload.source or "browser_extension",
         )
-        self.case_service.attach_evidence(case.case_id)
-        return case, evidence
+        refreshed_case = self.case_service.attach_evidence(case.case_id)
+        return refreshed_case or case, evidence
 
     @staticmethod
     def _derive_brand_name(title: str) -> str:

@@ -48,3 +48,4 @@ python3 scripts/smoke_test.py
 - Web 主站默认 `http://localhost:3000`
 - 插件联调可使用 `chrome-extension://*`
 - 如需调整允许源，修改 `.env` 里的 `ZHZG_CORS_ORIGINS` 和 `ZHZG_CORS_ORIGIN_REGEX`
+- 如需切换持久化库，修改 `.env` 里的 `ZHZG_DATABASE_URL`
