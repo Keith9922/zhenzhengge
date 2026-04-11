@@ -17,9 +17,13 @@ type SubmitResult = {
   mode: "simulated" | "api"
   message: string
   requestId: string
+  caseId: string
+  evidencePackId: string
+  workbenchUrl: string
 }
 
 const API_BASE_URL = process.env.PLASMO_PUBLIC_API_BASE_URL?.trim() ?? ""
+const WEB_BASE_URL = process.env.PLASMO_PUBLIC_WEB_BASE_URL?.trim() ?? ""
 const INTAKE_PATH = "/api/v1/evidence/intake"
 
 async function getActiveTabDraft(): Promise<EvidenceDraft> {
@@ -118,7 +122,10 @@ async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
       ok: true,
       mode: "simulated",
       message: `已模拟提交到后端队列，等待后续 API 接入。当前页面 ${draft.title} 已生成取证草稿。`,
-      requestId
+      requestId,
+      caseId: "",
+      evidencePackId: "",
+      workbenchUrl: ""
     }
   }
 
@@ -135,18 +142,41 @@ async function simulateSubmit(draft: EvidenceDraft): Promise<SubmitResult> {
       throw new Error(`HTTP ${response.status}`)
     }
 
+    const responseBody = (await response.json().catch(() => null)) as
+      | {
+          caseId?: string
+          evidencePackId?: string
+          case_id?: string
+          evidence_pack_id?: string
+        }
+      | null
+
+    const caseId = responseBody?.caseId ?? responseBody?.case_id ?? ""
+    const evidencePackId = responseBody?.evidencePackId ?? responseBody?.evidence_pack_id ?? ""
+    const workbenchUrl = WEB_BASE_URL
+      ? `${WEB_BASE_URL.replace(/\/$/, "")}/workspace/cases/${encodeURIComponent(
+          caseId || requestId
+        )}`
+      : ""
+
     return {
       ok: true,
       mode: "api",
       message: "已提交到后端接口，等待后端生成证据包。",
-      requestId
+      requestId,
+      caseId,
+      evidencePackId,
+      workbenchUrl
     }
   } catch (error) {
     return {
       ok: true,
       mode: "simulated",
       message: `后端接口暂不可用，已降级为本地模拟提交：${error instanceof Error ? error.message : "unknown error"}`,
-      requestId
+      requestId,
+      caseId: "",
+      evidencePackId: "",
+      workbenchUrl: ""
     }
   }
 }
@@ -155,6 +185,9 @@ export default function Popup() {
   const [draft, setDraft] = useState<EvidenceDraft | null>(null)
   const [status, setStatus] = useState<string>("尚未开始取证")
   const [requestId, setRequestId] = useState<string>("")
+  const [caseId, setCaseId] = useState<string>("")
+  const [evidencePackId, setEvidencePackId] = useState<string>("")
+  const [workbenchUrl, setWorkbenchUrl] = useState<string>("")
   const [loading, setLoading] = useState(false)
 
   const capturedLabel = useMemo(() => {
@@ -190,6 +223,9 @@ export default function Popup() {
 
       const result = await simulateSubmit(nextDraft)
       setRequestId(result.requestId)
+      setCaseId(result.caseId)
+      setEvidencePackId(result.evidencePackId)
+      setWorkbenchUrl(result.workbenchUrl)
       setStatus(result.message)
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "取证失败")
@@ -234,6 +270,14 @@ export default function Popup() {
           <span style={styles.value}>{requestId || "未生成"}</span>
         </div>
         <div style={styles.row}>
+          <span style={styles.label}>Case ID</span>
+          <span style={styles.value}>{caseId || "未返回"}</span>
+        </div>
+        <div style={styles.row}>
+          <span style={styles.label}>Evidence Pack ID</span>
+          <span style={styles.value}>{evidencePackId || "未返回"}</span>
+        </div>
+        <div style={styles.row}>
           <span style={styles.label}>页面正文</span>
           <span style={styles.value}>{draft?.pageText ? "已采集" : "未采集或为空"}</span>
         </div>
@@ -262,6 +306,20 @@ export default function Popup() {
             ))}
           </ul>
         </section>
+      ) : null}
+
+      {WEB_BASE_URL ? (
+        <a
+          href={
+            workbenchUrl ||
+            `${WEB_BASE_URL.replace(/\/$/, "")}/workspace/cases/${encodeURIComponent(requestId)}`
+          }
+          target="_blank"
+          rel="noreferrer"
+          style={styles.linkButton}
+        >
+          打开案件详情
+        </a>
       ) : null}
 
       <footer style={styles.footer}>
@@ -394,5 +452,20 @@ const styles: Record<string, CSSProperties> = {
   },
   warningItem: {
     marginBottom: 6
+  },
+  linkButton: {
+    display: "inline-flex",
+    justifyContent: "center",
+    alignItems: "center",
+    width: "100%",
+    marginTop: 12,
+    padding: "12px 14px",
+    borderRadius: 14,
+    background: "#0f766e",
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: 700,
+    textDecoration: "none",
+    boxSizing: "border-box"
   }
 }

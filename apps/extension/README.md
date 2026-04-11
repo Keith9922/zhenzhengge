@@ -29,6 +29,7 @@ pnpm pack
 
 ```bash
 PLASMO_PUBLIC_API_BASE_URL=http://localhost:8000
+PLASMO_PUBLIC_WEB_BASE_URL=http://localhost:3000
 ```
 
 如果暂时不配置，插件会退回到本地模拟提交模式。
@@ -54,3 +55,12 @@ PLASMO_PUBLIC_API_BASE_URL=http://localhost:8000
 - `screenshotBase64`
 - `imageUrls`
 - `captureWarnings`
+
+## 提交结果
+
+如果后端返回 `caseId` 和 `evidencePackId`，插件会直接展示它们。
+如果配置了 `PLASMO_PUBLIC_WEB_BASE_URL`，还会显示“打开案件详情”按钮，跳转到：
+
+```bash
+/workspace/cases/{caseId}
+```
