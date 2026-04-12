@@ -1,0 +1,51 @@
+flowchart TB
+    subgraph USER["👤 User Layer"]
+        EXT["🌐 Browser Extension<br/>(Plasmo)"]
+        WEB["🖥️ Web Workspace<br/>(Next.js)"]
+        MOB["📱 Mobile<br/>(Planned)"]
+    end
+
+    subgraph GATEWAY["⚡ API Gateway"]
+        API["FastAPI<br/>Python 3.11+ | CORS | Routing"]
+    end
+
+    subgraph SERVICES["🔧 Services Layer"]
+        HERMES["🦊 Hermes<br/>Task Orchestration"]
+        LLM["🤖 LLM Service<br/>MiMo | Doc Generation"]
+        PW["📸 Playwright<br/>Page Capture | Screenshot"]
+    end
+
+    subgraph DATA["💾 Data Layer"]
+        DB["🗄️ SQLite<br/>Cases | Evidence"]
+        NOTIFY["📧 Notification<br/>Email | Webhook"]
+        STORAGE["📁 File Storage<br/>Screenshots | HTML"]
+    end
+
+    USER -->|"Submit Evidence"| GATEWAY
+    USER -->|"View Cases"| GATEWAY
+    USER -->|"Monitor Sites"| GATEWAY
+
+    GATEWAY -->|"Route"| SERVICES
+
+    SERVICES -->|"Orchestrate"| HERMES
+    SERVICES -->|"Generate Docs"| LLM
+    SERVICES -->|"Capture Pages"| PW
+
+    HERMES -->|"Store Cases"| DATA
+    LLM -->|"Query/Write"| DATA
+    PW -->|"Save Evidence"| DATA
+
+    classDef user fill:#3b82f6,color:#fff,stroke:#1d4ed8
+    classDef gateway fill:#f59e0b,color:#fff,stroke:#d97706
+    classDef service fill:#ec4899,color:#fff,stroke:#db2777
+    classDef data fill:#6366f1,color:#fff,stroke:#4f46e5
+    classDef hermes fill:#ec4899,color:#fff,stroke:#db2777
+    classDef llm fill:#ef4444,color:#fff,stroke:#dc2626
+    classDef playwright fill:#14b8a6,color:#fff,stroke:#0d9488
+
+    class EXT,WEB,MOB user
+    class API gateway
+    class HERMES hermes
+    class LLM llm
+    class PW playwright
+    class DB,NOTIFY,STORAGE data
