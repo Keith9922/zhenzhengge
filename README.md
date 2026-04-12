@@ -1,7 +1,7 @@
 # 证证鸽｜AI 知识产权侵权响应平台
 
 <p align="center">
-  <img src="apps/web/public/branding/zzge-logo.png" alt="证证鸽 Logo" width="180"/>
+  <img src="apps/web/public/branding/zzge-logo-full.png" alt="证证鸽 Logo" width="180"/>
 </p>
 
 > **面向品牌方与法务团队的 AI 知识产权侵权响应平台**
