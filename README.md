@@ -74,7 +74,7 @@
 ## 技术架构
 
 <p align="center">
-  <img src="docs/architecture.png" alt="Architecture Diagram" width="900"/>
+  <img src="docs/architecture.png" alt="Architecture Diagram" width="600"/>
 </p>
 
 ### 技术选型
