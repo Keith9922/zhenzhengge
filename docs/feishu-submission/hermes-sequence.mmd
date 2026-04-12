@@ -1,0 +1,23 @@
+sequenceDiagram
+    participant Plugin as 浏览器插件
+    participant API as FastAPI / IntakeService
+    participant Hermes as HermesOrchestrator
+    participant PW as PlaywrightWorker
+    participant Evidence as EvidenceService
+    participant Draft as DocumentDraftService
+    participant LLM as MiMo LLM
+    participant Notify as NotificationAdapter
+
+    Plugin->>API: 提交 URL / 标题 / HTML / 截图 / 正文
+    API->>Hermes: submit_capture_workflow(case_id)
+    API->>PW: 缺失截图或 HTML 时补抓
+    API->>Evidence: 生成证据包并落盘
+
+    Note over Hermes,Draft: 监控链路命中后，也会复用 Hermes
+    Hermes->>LLM: generate_case_summary(case_context, evidence_context)
+    Hermes->>Notify: 触发风险通知
+
+    Draft->>Hermes: submit_document_workflow(template_key, case_id)
+    Hermes->>LLM: generate_document_draft(template, case, evidence)
+    LLM-->>Draft: 返回可审核 Markdown 草稿
+

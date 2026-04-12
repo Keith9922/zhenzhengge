@@ -1,0 +1,53 @@
+flowchart LR
+    subgraph Input[前端与入口]
+        A1[浏览器插件]
+        A2[Web 工作台]
+        A3[监控任务配置]
+    end
+
+    subgraph API[平台 API 层]
+        B1[IntakeService]
+        B2[CaseService]
+        B3[EvidenceService]
+        B4[DocumentDraftService]
+        B5[MonitorTaskService]
+        B6[NotificationAdapter]
+    end
+
+    subgraph Hermes[编排层]
+        C1[HermesOrchestrator]
+    end
+
+    subgraph Workers[执行能力层]
+        D1[PlaywrightWorker]
+        D2[MiMo OpenAI-compatible LLM]
+        D3[邮件 / Webhook 通知]
+    end
+
+    subgraph Storage[数据层]
+        E1[(SQLite 案件库)]
+        E2[(证据文件与截图)]
+        E3[(草稿与通知日志)]
+    end
+
+    A1 --> B1
+    A2 --> B2
+    A2 --> B3
+    A2 --> B4
+    A3 --> B5
+
+    B1 --> C1
+    B4 --> C1
+    B5 --> C1
+    B6 --> C1
+
+    C1 --> D1
+    C1 --> D2
+    C1 --> D3
+
+    B2 --> E1
+    B3 --> E2
+    B4 --> E3
+    B5 --> E1
+    B6 --> E3
+

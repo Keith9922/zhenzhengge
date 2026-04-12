@@ -615,6 +615,16 @@ class SQLiteStorage:
                     record.export_path,
                 ),
             )
+            conn.execute(
+                """
+                UPDATE cases
+                SET template_count = template_count + 1,
+                    status = ?,
+                    updated_at = ?
+                WHERE case_id = ?
+                """,
+                (CaseStatus.drafting.value, record.updated_at.isoformat(), case_id),
+            )
         return record
 
     def list_document_drafts(self, case_id: str | None = None) -> list[DocumentDraftRecord]:

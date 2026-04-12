@@ -1,7 +1,9 @@
 from app.schemas.cases import CaseDetail, CaseCreateRequest
+from app.schemas.drafts import DocumentDraftCreateRequest, DocumentDraftRecord
 from app.schemas.evidence import EvidencePackRecord
 from app.schemas.intake import EvidenceIntakeRequest
 from app.services.cases import CaseService
+from app.services.drafts import DocumentDraftService
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
 from app.services.playwright import PlaywrightWorker
@@ -13,15 +15,17 @@ class IntakeService:
         *,
         case_service: CaseService,
         evidence_service: EvidenceService,
+        draft_service: DocumentDraftService,
         hermes: HermesOrchestrator,
         playwright: PlaywrightWorker,
     ) -> None:
         self.case_service = case_service
         self.evidence_service = evidence_service
+        self.draft_service = draft_service
         self.hermes = hermes
         self.playwright = playwright
 
-    def intake(self, payload: EvidenceIntakeRequest) -> tuple[CaseDetail, EvidencePackRecord]:
+    def intake(self, payload: EvidenceIntakeRequest) -> tuple[CaseDetail, EvidencePackRecord, DocumentDraftRecord | None]:
         brand_name = self._derive_brand_name(payload.title)
         suspect_name = self._derive_suspect_name(payload.title)
         platform = self._derive_platform(payload.source)
@@ -61,7 +65,9 @@ class IntakeService:
             screenshot_bytes=capture.screenshot_bytes if capture else None,
         )
         refreshed_case = self.case_service.attach_evidence(case.case_id)
-        return refreshed_case or case, evidence
+        active_case = refreshed_case or case
+        generated_draft = self._maybe_generate_draft(active_case, payload)
+        return active_case, evidence, generated_draft
 
     @staticmethod
     def _derive_brand_name(title: str) -> str:
@@ -98,3 +104,28 @@ class IntakeService:
         if title:
             tags.append(title[:20])
         return tags
+
+    def _maybe_generate_draft(
+        self,
+        case: CaseDetail,
+        payload: EvidenceIntakeRequest,
+    ) -> DocumentDraftRecord | None:
+        if not payload.auto_generate_draft:
+            return None
+
+        template_key = (payload.draft_template_key or "lawyer-letter").strip() or "lawyer-letter"
+        try:
+            return self.draft_service.generate_draft(
+                DocumentDraftCreateRequest(
+                    case_id=case.case_id,
+                    template_key=template_key,
+                    variables_override={
+                        "取证时间": payload.captured_at.isoformat(),
+                        "取证渠道": payload.source or "browser-extension",
+                        "取证请求编号": payload.request_id,
+                        "证据留存说明": "由于技术及国家认证要求等因素，暂时还未接入可信时间戳的 API 渠道；当前证据来自公开网页抓取、页面截图与 HTML 留存。",
+                    },
+                )
+            )
+        except ValueError:
+            return None

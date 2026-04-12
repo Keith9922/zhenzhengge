@@ -16,14 +16,14 @@ export default function HomePage() {
             <div className="max-w-3xl">
               <span className="inline-flex items-center gap-3 rounded-full border border-brand-100 bg-white/90 px-3 py-2 text-sm font-medium text-brand-700 shadow-soft">
                 <LogoMark className="h-8 w-8" />
-                <span>证证鸽 · 网页取证、证据归档、风险研判、材料辅助</span>
+                <span>证证鸽｜AI 知识产权侵权响应平台</span>
               </span>
               <h1 className="mt-6 text-5xl font-semibold tracking-tight text-ink sm:text-6xl">
                 让疑似侵权页面
-                <span className="block text-brand-700">更快变成可行动的证据</span>
+                <span className="block text-brand-700">更快变成可行动的案件材料</span>
               </h1>
               <p className="mt-6 max-w-2xl text-lg leading-8 text-slate-600">
-                证证鸽面向知识产权侵权响应场景，帮助品牌方和法务团队把零散的网页线索快速转成标准化证据包、案件材料和后续处理依据。
+                证证鸽面向知识产权侵权响应场景，帮助品牌方和法务团队把零散的网页线索快速转成标准化证据包、案件材料与可审核的法律文书草稿。
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link
@@ -45,7 +45,7 @@ export default function HomePage() {
                 {[
                   "网页取证",
                   "证据归档",
-                  "材料辅助",
+                  "草稿生成",
                 ].map((item) => (
                   <div key={item} className="rounded-2xl border border-white/70 bg-white/80 px-4 py-3 shadow-soft">
                     <p className="text-sm font-semibold text-ink">{item}</p>
@@ -60,7 +60,7 @@ export default function HomePage() {
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-sm font-semibold text-brand-700">产品流程</p>
-                    <p className="text-xs text-slate-500">发现线索 / 取证留存 / 风险研判 / 材料整理</p>
+                    <p className="text-xs text-slate-500">发现线索 / 取证留痕 / 风险研判 / 草稿生成</p>
                   </div>
                   <div className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
                     公开网页场景
@@ -109,8 +109,8 @@ export default function HomePage() {
         <section id="workflow" className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
           <SectionHeading
             eyebrow="功能链路"
-            title="围绕侵权响应，先把线索变成可行动的材料"
-            description="证证鸽强调从线索发现、证据留存到材料整理的一体化体验，帮助团队更快进入下一步处置。"
+            title="围绕侵权响应，把线索变成证据、材料与草稿"
+            description="证证鸽强调从线索发现、证据留存到草稿生成与人工审核导出的一体化体验，帮助团队更快进入下一步处置。"
           />
           <div className="mt-8 grid gap-4 lg:grid-cols-2">
             {workflowSteps.map((step, index) => (
@@ -131,7 +131,7 @@ export default function HomePage() {
           <SectionHeading
             eyebrow="产品资料"
             title="先看产品概览、适用场景与能力边界"
-            description="这里展示的是面向外部的产品资料，帮助用户快速理解证证鸽适合解决哪些问题。"
+            description="这里展示的是面向外部的产品资料，帮助用户快速理解证证鸽适合解决哪些问题，以及当前能力边界。"
           />
           <div className="mt-8 grid gap-5 lg:grid-cols-3">
             {docsIndex.map((doc) => (
@@ -155,7 +155,7 @@ export default function HomePage() {
             <div className="max-w-3xl">
               <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-200">工作台入口</p>
               <h2 className="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">
-                从主站进入工作台，继续查看案件、证据和材料进展
+                从主站进入工作台，继续查看案件、证据和草稿进展
               </h2>
               <p className="mt-4 text-base leading-7 text-slate-300">
                 工作台承接案件查看、证据包整理、材料准备与后续协同，是证证鸽的核心操作入口。

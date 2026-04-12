@@ -124,8 +124,14 @@ class OpenAICompatibleLLMService:
     ) -> LLMGenerationResult:
         system_prompt = (
             "你是证证鸽的知识产权文书初稿助手。"
-            "请根据模板名、案件信息、证据要点和补充变量，输出可供法务审核的中文 Markdown 草稿。"
-            "不要把未确认事实写成既成结论，不要直接输出最终定稿版本。"
+            "请根据模板名、案件信息、证据要点和补充变量，输出适合法务审核和 Word 导出的中文 Markdown 草稿。"
+            "语气必须正式、克制、结构清晰，不要把未确认事实写成既成结论，不要直接输出最终定稿版本。"
+            "律师函应包含函件对象、事实概述、证据依据、处理请求、权利保留和附件说明；"
+            "平台投诉函应包含投诉对象、投诉事项、证据依据、请求平台处理事项和附件说明；"
+            "证据目录应包含案件概况、证据清单和补强建议。"
+            "必须如实说明：当前证据来源于公开网页抓取、页面截图与 HTML 留存，"
+            "由于技术及国家认证要求等因素，暂时还未接入可信时间戳的 API 渠道。"
+            "如果需要写后续规划，可以说明正式投产后有望在取证固证环节接入可信时间戳功能。"
         )
         user_prompt = self._format_json_payload(
             {
@@ -325,18 +331,78 @@ class OpenAICompatibleLLMService:
         description = str(case_context.get("description") or "暂无案件说明。")
         variable_lines = self._format_mapping_lines(variables_override)
         evidence_lines = self._format_evidence_lines(evidence_context)
+        evidence_note = (
+            "当前证据来源于公开网页抓取、页面截图与 HTML 留存；"
+            "由于技术及国家认证要求等因素，暂时还未接入可信时间戳的 API 渠道。"
+        )
+
+        if "平台投诉函" in template_name:
+            return (
+                f"# {template_name}\n\n"
+                "## 一、投诉对象\n"
+                f"- 涉案页面/主体：{suspect_name}\n"
+                f"- 涉及平台：{platform}\n"
+                f"- 品牌/权利人：{brand_name}\n\n"
+                "## 二、线索概述\n"
+                f"{description}\n\n"
+                "## 三、证据依据\n"
+                f"{evidence_lines}\n\n"
+                f"> 证据留存说明：{evidence_note}\n\n"
+                "## 四、请求平台处理事项\n"
+                "1. 请尽快核验涉案页面及相关主体信息。\n"
+                "2. 如发现存在涉嫌侵权、混淆或冒用展示，请采取下架、断链或限制传播等必要措施。\n"
+                "3. 请保留平台侧日志信息，便于后续沟通与进一步核验。\n\n"
+                "## 五、补充信息\n"
+                f"{variable_lines}\n\n"
+                "## 六、附件说明\n"
+                "- 附件包括案件摘要、证据目录、页面截图与 HTML 留存信息。\n"
+                "- 本草稿用于法务审核与平台沟通前整理，正式提交前仍需人工复核。\n"
+            )
+
+        if "证据目录" in template_name:
+            return (
+                f"# {template_name}\n\n"
+                "## 一、案件概况\n"
+                f"- 案件标题：{case_title}\n"
+                f"- 品牌对象：{brand_name}\n"
+                f"- 疑似主体：{suspect_name}\n"
+                f"- 来源平台：{platform}\n"
+                f"- 风险等级：{risk_level}\n\n"
+                "## 二、证据清单\n"
+                f"{evidence_lines}\n\n"
+                "## 三、补充说明\n"
+                f"{description}\n\n"
+                f"> 证据留存说明：{evidence_note}\n\n"
+                "## 四、后续补强建议\n"
+                "- 正式投产后，可在取证固证环节接入可信时间戳功能，进一步提升取证留存的精度与可追溯性。\n"
+                "- 如进入正式维权流程，建议补充商标注册证、录屏材料、订单与物流等补强证据。\n\n"
+                "## 五、补充变量\n"
+                f"{variable_lines}\n"
+            )
+
         return (
             f"# {template_name}\n\n"
-            f"## 案件标题\n{case_title}\n\n"
-            f"## 品牌对象\n{brand_name}\n\n"
-            f"## 疑似主体\n{suspect_name}\n\n"
-            f"## 来源平台\n{platform}\n\n"
-            f"## 风险等级\n{risk_level}\n\n"
-            f"## 案件说明\n{description}\n\n"
-            f"## 证据要点\n{evidence_lines}\n\n"
-            f"## 补充变量\n{variable_lines}\n\n"
-            "## 初稿正文\n"
-            "本草稿用于法务审核前预览，正式对外动作仍需人工确认。\n"
+            "## 一、函件对象\n"
+            f"- 品牌/权利人：{brand_name}\n"
+            f"- 涉案页面/主体：{suspect_name}\n"
+            f"- 来源平台：{platform}\n\n"
+            "## 二、事实概述\n"
+            f"{description}\n\n"
+            "## 三、证据依据\n"
+            f"{evidence_lines}\n\n"
+            f"> 证据留存说明：{evidence_note}\n\n"
+            "## 四、处理请求\n"
+            "1. 请尽快核查并停止相关涉嫌侵权、冒用或混淆展示行为。\n"
+            "2. 请对涉案页面、商品或链接进行下架、修改或删除处理。\n"
+            "3. 请在收到函件后及时反馈处理结果，并保留相关操作记录。\n\n"
+            "## 五、权利保留\n"
+            "如相关行为持续存在，我方将结合后续补强证据与业务损失情况，保留进一步采取投诉、发函或法律措施的权利。\n\n"
+            "## 六、补充信息\n"
+            f"{variable_lines}\n\n"
+            "## 七、附件说明\n"
+            f"- 案件标题：{case_title}\n"
+            "- 附件包括页面截图、HTML 留存、证据目录及案件摘要。\n"
+            "- 本草稿用于法务审核前预览，正式对外动作仍需人工确认。\n"
         )
 
     @staticmethod
@@ -353,10 +419,19 @@ class OpenAICompatibleLLMService:
             title = str(item.get("source_title") or item.get("title") or f"证据 {index}")
             url = str(item.get("source_url") or item.get("url") or "")
             note = str(item.get("note") or item.get("summary") or "")
+            capture_channel = str(item.get("capture_channel") or "")
+            captured_at = str(item.get("captured_at") or "")
+            html_excerpt = str(item.get("html_excerpt") or "")
             parts = [f"{index}. {title}"]
             if url:
                 parts.append(f"URL={url}")
             if note:
                 parts.append(f"说明={note}")
+            if capture_channel:
+                parts.append(f"渠道={capture_channel}")
+            if captured_at:
+                parts.append(f"取证时间={captured_at}")
+            if html_excerpt:
+                parts.append(f"页面摘要={html_excerpt}")
             lines.append(" | ".join(parts))
         return "\n".join(f"- {line}" for line in lines)

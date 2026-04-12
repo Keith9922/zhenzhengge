@@ -1,4 +1,10 @@
 from pathlib import Path
+import re
+
+from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml.ns import qn
+from docx.shared import Inches, Pt
 
 from app.core.storage import SQLiteStorage
 from app.schemas.drafts import DocumentDraftCreateRequest, DocumentDraftRecord, DraftStatus
@@ -53,15 +59,7 @@ class DocumentDraftService:
                 "risk_level": case.risk_level,
                 "description": case.description,
             },
-            evidence_context=[
-                {
-                    "evidence_pack_id": item.evidence_pack_id,
-                    "source_title": item.source_title,
-                    "source_url": item.source_url,
-                    "note": item.note or "",
-                }
-                for item in evidence_items
-            ],
+            evidence_context=[self._build_evidence_context(item) for item in evidence_items],
             variables_override=payload.variables_override,
         )
         content = llm_result.content or self._render_content(
@@ -110,8 +108,51 @@ class DocumentDraftService:
         base_dir = Path(self.storage.db_path).resolve().parent if self.storage.db_path != ":memory:" else Path.cwd()
         export_dir = base_dir / "exports" / "drafts"
         export_dir.mkdir(parents=True, exist_ok=True)
-        export_path = export_dir / f"{draft_id}.md"
-        export_path.write_text(draft.content, encoding="utf-8")
+        export_path = export_dir / f"{draft_id}.docx"
+
+        doc = Document()
+        self._configure_document(doc)
+
+        title = doc.add_heading(draft.title or "文书草稿", 0)
+        title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        meta = doc.add_paragraph()
+        meta.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        meta.add_run(f"案件编号：{draft.case_id}  ").bold = True
+        meta.add_run(f"模板：{draft.template_key}  ")
+        meta.add_run(f"导出时间：{draft.updated_at.strftime('%Y-%m-%d %H:%M:%S')}")
+
+        lines = (draft.content or "").strip().split("\n")
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            if line == "---":
+                doc.add_paragraph()
+                continue
+            # Handle headings
+            if line.startswith("# "):
+                doc.add_heading(line[2:], level=1)
+            elif line.startswith("## "):
+                doc.add_heading(line[3:], level=2)
+            elif line.startswith("### "):
+                doc.add_heading(line[4:], level=3)
+            elif re.match(r"^\d+\.\s+", line):
+                p = doc.add_paragraph(style="List Number")
+                self._append_inline_runs(p, re.sub(r"^\d+\.\s+", "", line))
+            # Handle list items
+            elif line.startswith("- "):
+                p = doc.add_paragraph(style="List Bullet")
+                self._append_inline_runs(p, line[2:])
+            elif line.startswith("> "):
+                p = doc.add_paragraph()
+                p.paragraph_format.left_indent = Inches(0.28)
+                run = p.add_run(line[2:])
+                run.italic = True
+            else:
+                p = doc.add_paragraph()
+                self._append_inline_runs(p, line)
+
+        doc.save(str(export_path))
 
         relative_path = export_path.relative_to(base_dir).as_posix()
         return self.storage.set_document_draft_export_path(draft_id, relative_path)
@@ -141,3 +182,56 @@ class DocumentDraftService:
             "## 使用提示\n"
             "本草稿用于内部整理和法务审核前预览，正式对外动作仍需人工确认。\n"
         )
+
+    def _build_evidence_context(self, item) -> dict[str, str]:
+        return {
+            "evidence_pack_id": item.evidence_pack_id,
+            "source_title": item.source_title,
+            "source_url": item.source_url,
+            "note": item.note or "",
+            "capture_channel": item.capture_channel,
+            "captured_at": item.created_at.isoformat(),
+            "hash_sha256": item.hash_sha256,
+            "html_excerpt": self._extract_html_excerpt(self.evidence_service.read_html(item)),
+        }
+
+    @staticmethod
+    def _extract_html_excerpt(raw_html: str, limit: int = 160) -> str:
+        text = re.sub(r"<script[\s\S]*?</script>", " ", raw_html, flags=re.IGNORECASE)
+        text = re.sub(r"<style[\s\S]*?</style>", " ", text, flags=re.IGNORECASE)
+        text = re.sub(r"<[^>]+>", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if len(text) <= limit:
+            return text
+        return f"{text[:limit].rstrip()}..."
+
+    @staticmethod
+    def _append_inline_runs(paragraph, text: str) -> None:
+        parts = re.split(r"\*\*(.+?)\*\*", text)
+        for index, part in enumerate(parts):
+            run = paragraph.add_run(part)
+            if index % 2 == 1:
+                run.bold = True
+
+    @staticmethod
+    def _configure_document(doc: Document) -> None:
+        section = doc.sections[0]
+        section.top_margin = Inches(1)
+        section.bottom_margin = Inches(1)
+        section.left_margin = Inches(1)
+        section.right_margin = Inches(1)
+
+        normal_style = doc.styles["Normal"]
+        DocumentDraftService._set_style_font(normal_style, "宋体", 11)
+
+        heading1 = doc.styles["Heading 1"]
+        DocumentDraftService._set_style_font(heading1, "黑体", 14)
+
+        heading2 = doc.styles["Heading 2"]
+        DocumentDraftService._set_style_font(heading2, "黑体", 12)
+
+    @staticmethod
+    def _set_style_font(style, font_name: str, size: int) -> None:
+        style.font.name = font_name
+        style.font.size = Pt(size)
+        style._element.get_or_add_rPr().get_or_add_rFonts().set(qn("w:eastAsia"), font_name)

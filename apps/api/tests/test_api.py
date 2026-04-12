@@ -49,7 +49,7 @@ def test_plugin_intake_creates_case_and_evidence():
             )
             assert response.status_code == 200
             payload = response.json()
-            assert set(payload.keys()) == {"case", "evidence_pack"}
+            assert set(payload.keys()) == {"case", "evidence_pack", "generated_draft"}
             assert payload["case"]["title"] == "阿波达斯商品页疑似仿冒"
             assert payload["case"]["brand_name"] == "阿波达斯商品页疑似仿冒"
             assert payload["case"]["platform"] == "browser-extension"
@@ -58,6 +58,8 @@ def test_plugin_intake_creates_case_and_evidence():
             assert payload["evidence_pack"]["evidence_pack_id"]
             assert payload["evidence_pack"]["case_id"] == payload["case"]["case_id"]
             assert payload["case"]["evidence_count"] == 1
+            assert payload["generated_draft"]["template_key"] == "lawyer-letter"
+            assert "可信时间戳" in payload["generated_draft"]["content"]
 
             case_id = payload["case"]["case_id"]
             detail = client.get(f"/api/v1/cases/{case_id}")
@@ -65,6 +67,7 @@ def test_plugin_intake_creates_case_and_evidence():
             detail_payload = detail.json()
             assert detail_payload["title"] == "阿波达斯商品页疑似仿冒"
             assert detail_payload["evidence_count"] == 1
+            assert detail_payload["template_count"] == 1
 
 
 def test_plugin_intake_accepts_plugin_alias_payload_and_nested_response():
@@ -86,11 +89,12 @@ def test_plugin_intake_accepts_plugin_alias_payload_and_nested_response():
             )
             assert response.status_code == 200
             payload = response.json()
-            assert set(payload.keys()) == {"case", "evidence_pack"}
+            assert set(payload.keys()) == {"case", "evidence_pack", "generated_draft"}
             assert payload["case"]["case_id"].startswith("case-zhzg-")
             assert payload["case"]["platform"] == "browser-extension"
             assert payload["evidence_pack"]["case_id"] == payload["case"]["case_id"]
             assert payload["evidence_pack"]["source_title"] == "阿波达斯商品页疑似仿冒"
+            assert payload["generated_draft"]["draft_id"].startswith("draft-")
 
 
 def test_sqlite_persists_across_app_restart():
@@ -205,7 +209,7 @@ def test_case_evidence_and_draft_workflow():
             exported = client.post(f"/api/v1/document-drafts/{draft_id}/export")
             assert exported.status_code == 200
             assert exported.json()["item"]["status"] == "exported"
-            assert exported.json()["file_path"].endswith(f"{draft_id}.md")
+            assert exported.json()["file_path"].endswith(f"{draft_id}.docx")
             export_file = Path(tmpdir) / exported.json()["file_path"]
             assert export_file.exists()
 

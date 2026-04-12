@@ -12,5 +12,9 @@ def plugin_intake(
     payload: EvidenceIntakeRequest,
     service: IntakeService = Depends(get_intake_service),
 ) -> EvidenceIntakeResponse:
-    case, evidence_pack = service.intake(payload)
-    return EvidenceIntakeResponse(case=case, evidence_pack=evidence_pack)
+    case, evidence_pack, generated_draft = service.intake(payload)
+    return EvidenceIntakeResponse(
+        case=case,
+        evidence_pack=evidence_pack,
+        generated_draft=generated_draft,
+    )

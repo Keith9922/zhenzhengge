@@ -20,14 +20,16 @@ type SubmitResult = {
   requestId: string
   caseId: string
   evidencePackId: string
+  draftId: string
   workbenchUrl: string
 }
 
-const API_BASE_URL = process.env.PLASMO_PUBLIC_API_BASE_URL?.trim() ?? ""
-const WEB_BASE_URL = process.env.PLASMO_PUBLIC_WEB_BASE_URL?.trim() ?? ""
-const IS_PRODUCTION = process.env.NODE_ENV === "production"
-const ALLOW_SIMULATED_SUBMISSION =
-  process.env.PLASMO_PUBLIC_ALLOW_SIMULATED_SUBMISSION?.trim() === "true" || !IS_PRODUCTION
+// 写死的地址，上线后替换
+const API_BASE_URL = "http://127.0.0.1:8000"
+const WEB_BASE_URL = "http://localhost:3000"
+// const API_BASE_URL = "https://api.example.com"  // TODO: 上线后替换
+// const WEB_BASE_URL = "https://www.example.com"  // TODO: 上线后替换
+const ALLOW_SIMULATED_SUBMISSION = false // 正式模式，禁用模拟提交
 const INTAKE_PATH = "/api/v1/evidence/intake"
 
 async function getActiveTabDraft(): Promise<EvidenceDraft> {
@@ -326,15 +328,17 @@ function parseIntakeResponse(responseBody: unknown) {
   const body = responseBody as {
     case?: { case_id?: string }
     evidence_pack?: { evidence_pack_id?: string }
+    generated_draft?: { draft_id?: string }
   }
   const caseId = body.case?.case_id?.trim() ?? ""
   const evidencePackId = body.evidence_pack?.evidence_pack_id?.trim() ?? ""
+  const draftId = body.generated_draft?.draft_id?.trim() ?? ""
 
   if (!caseId || !evidencePackId) {
     throw new Error("后端返回结构不符合 intake 契约，应包含 case.case_id 和 evidence_pack.evidence_pack_id")
   }
 
-  return { caseId, evidencePackId }
+  return { caseId, evidencePackId, draftId }
 }
 
 async function submitEvidence(draft: EvidenceDraft): Promise<SubmitResult> {
@@ -354,6 +358,7 @@ async function submitEvidence(draft: EvidenceDraft): Promise<SubmitResult> {
       requestId,
       caseId: "",
       evidencePackId: "",
+      draftId: "",
       workbenchUrl: ""
     }
   }
@@ -372,20 +377,23 @@ async function submitEvidence(draft: EvidenceDraft): Promise<SubmitResult> {
     }
 
     const responseBody = await response.json().catch(() => null)
-    const { caseId, evidencePackId } = parseIntakeResponse(responseBody)
+    const { caseId, evidencePackId, draftId } = parseIntakeResponse(responseBody)
     const workbenchUrl = WEB_BASE_URL
-      ? `${WEB_BASE_URL.replace(/\/$/, "")}/workspace/cases/${encodeURIComponent(
-          caseId
-        )}`
+      ? draftId
+        ? `${WEB_BASE_URL.replace(/\/$/, "")}/workspace/drafts/${encodeURIComponent(draftId)}`
+        : `${WEB_BASE_URL.replace(/\/$/, "")}/workspace/cases/${encodeURIComponent(caseId)}`
       : ""
 
     return {
       ok: true,
       mode: "api",
-      message: "【正式模式】当前页面已完成提交，可继续在工作台查看取证记录。",
+      message: draftId
+        ? "【正式模式】当前页面已完成提交，并已自动生成法律文书草稿。"
+        : "【正式模式】当前页面已完成提交，可继续在工作台查看取证记录。",
       requestId,
       caseId,
       evidencePackId,
+      draftId,
       workbenchUrl
     }
   } catch (error) {
@@ -400,6 +408,7 @@ async function submitEvidence(draft: EvidenceDraft): Promise<SubmitResult> {
         requestId,
         caseId: "",
         evidencePackId: "",
+        draftId: "",
         workbenchUrl: ""
       }
     }
@@ -411,6 +420,7 @@ async function submitEvidence(draft: EvidenceDraft): Promise<SubmitResult> {
       requestId,
       caseId: "",
       evidencePackId: "",
+      draftId: "",
       workbenchUrl: ""
     }
   }
@@ -422,6 +432,7 @@ export default function Popup() {
   const [requestId, setRequestId] = useState<string>("")
   const [caseId, setCaseId] = useState<string>("")
   const [evidencePackId, setEvidencePackId] = useState<string>("")
+  const [draftId, setDraftId] = useState<string>("")
   const [workbenchUrl, setWorkbenchUrl] = useState<string>("")
   const [submissionMode, setSubmissionMode] = useState<string>("未提交")
   const [loading, setLoading] = useState(false)
@@ -473,6 +484,7 @@ export default function Popup() {
       setRequestId(result.requestId)
       setCaseId(result.caseId)
       setEvidencePackId(result.evidencePackId)
+      setDraftId(result.draftId)
       setWorkbenchUrl(result.workbenchUrl)
       setSubmissionMode(result.mode === "api" ? "正式模式" : "开发模式")
       setStatus(result.message)
@@ -532,6 +544,10 @@ export default function Popup() {
           <span style={styles.value}>{evidencePackId || "待生成"}</span>
         </div>
         <div style={styles.row}>
+          <span style={styles.label}>草稿编号</span>
+          <span style={styles.value}>{draftId || "待生成"}</span>
+        </div>
+        <div style={styles.row}>
           <span style={styles.label}>页面正文</span>
           <span style={styles.value}>
             {draft?.pageText ? `已采集（${draft.pageText.length} 字）` : "未采集或为空"}
@@ -569,7 +585,9 @@ export default function Popup() {
         <section style={styles.successCard}>
           <div style={styles.successTitle}>取证提交成功</div>
           <p style={styles.successText}>
-            当前页面已经生成案件与证据包，后续可以直接进入工作台继续查看证据、草稿和处理进展。
+            {draftId
+              ? "当前页面已经生成案件、证据包和法律文书草稿，可直接进入工作台继续审核与导出。"
+              : "当前页面已经生成案件与证据包，后续可以直接进入工作台继续查看证据、草稿和处理进展。"}
           </p>
         </section>
       ) : null}
@@ -589,7 +607,7 @@ export default function Popup() {
 
       {workbenchUrl ? (
         <a href={workbenchUrl} target="_blank" rel="noreferrer" style={styles.linkButton}>
-          打开案件详情
+          {draftId ? "打开草稿详情" : "打开案件详情"}
         </a>
       ) : submissionMode === "development" && WEB_BASE_URL ? (
         <div style={styles.devHint}>开发模式下未生成真实案件链接，可在后端接通后继续查看。</div>

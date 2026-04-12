@@ -57,6 +57,7 @@ async def lifespan(app: FastAPI):
     app.state.services["intake"] = IntakeService(
         case_service=app.state.services["cases"],
         evidence_service=app.state.services["evidence"],
+        draft_service=app.state.services["drafts"],
         hermes=app.state.services["hermes"],
         playwright=app.state.services["playwright"],
     )

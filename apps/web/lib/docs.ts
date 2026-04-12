@@ -69,7 +69,7 @@ export const internalDocEntries: InternalDocEntry[] = [
     bullets: [
       "初版优先聚焦国内公开网页场景。",
       "重心放在取证固证，文书是后续连带能力。",
-      "输出统一使用“疑似侵权”“建议人工复核”等表述。",
+      "输出统一使用“疑似侵权”“建议人工复核”“可审核草稿”等表述。",
     ],
   },
   {
@@ -91,8 +91,8 @@ export const internalDocEntries: InternalDocEntry[] = [
     href: "/internal/docs/project-package",
     sourcePath: "docs/zhenzhengge-project-package.md",
     bullets: [
-      "品牌名采用“证证鸽”。",
-      "主链路为主动取证 + 自动监测 + 文书辅助。",
+      "对外全称采用“证证鸽｜AI 知识产权侵权响应平台”，对内可简称“证证鸽”。",
+      "主链路为主动取证 + 自动监测 + 草稿生成 + 人工审核导出。",
       "Landing Page 作为主站入口和资料入口。",
     ],
   },
