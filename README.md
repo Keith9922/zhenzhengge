@@ -1,17 +1,17 @@
 # 证证鸽｜AI 知识产权侵权响应平台
 
-<p align="center">
+<div align="center">
   <img src="apps/web/public/branding/zzge-logo-full.png" alt="证证鸽 Logo" width="200"/>
-</p>
+</div>
 
-<p align="center">
+<div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green.svg)](https://fastapi.tiangolo.com/)
 
-</p>
+</div>
 
 > **面向品牌方与法务团队的 AI 知识产权侵权响应平台**
 
