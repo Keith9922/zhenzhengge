@@ -24,7 +24,7 @@ class NotificationAdapter:
         return {
             "name": "notification_adapter",
             "status": "ready" if email_ready else "degraded",
-            "description": "通知渠道已接入，可进行配置和测试；未配置 SMTP 时邮件发送会降级。",
+            "description": "通知渠道已接入；未配置 SMTP 时邮件发送会失败并记录日志。",
         }
 
     def list_channels(self) -> list[NotificationChannelRecord]:
@@ -55,7 +55,7 @@ class NotificationAdapter:
 
     def send_dingtalk(self, target: str, subject: str, body: str) -> dict[str, str]:
         if not target.startswith("http"):
-            return {"channel": "dingtalk", "status": "dry-run", "detail": f"未配置有效 webhook：{subject}"}
+            return {"channel": "dingtalk", "status": "failed", "detail": f"未配置有效 webhook：{subject}"}
 
         payload = {
             "msgtype": "markdown",
@@ -71,7 +71,7 @@ class NotificationAdapter:
 
     def send_email(self, target: str, subject: str, body: str) -> dict[str, str]:
         if not (self.settings.smtp_host and self.settings.smtp_from_email):
-            return {"channel": "email", "status": "dry-run", "detail": f"SMTP 未配置，未实际发送：{subject}"}
+            return {"channel": "email", "status": "failed", "detail": f"SMTP 未配置，发送失败：{subject}"}
 
         message = EmailMessage()
         message["Subject"] = subject

@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { getApiBaseUrl } from "@/lib/env";
+import { getApiAuthToken, getApiBaseUrl } from "@/lib/env";
 
 function buildUpstreamUrl(pathSegments: string[], search: string) {
   const baseUrl = getApiBaseUrl().trim().replace(/\/$/, "");
@@ -28,6 +28,10 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
   const headers = new Headers(request.headers);
   headers.delete("host");
   headers.delete("content-length");
+  const token = getApiAuthToken().trim();
+  if (token && !headers.get("authorization")) {
+    headers.set("authorization", `Bearer ${token}`);
+  }
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
   const body = hasBody ? await request.arrayBuffer() : undefined;
@@ -54,5 +58,9 @@ export async function GET(request: NextRequest, context: { params: Promise<{ pat
 }
 
 export async function POST(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
+  return proxy(request, context);
+}
+
+export async function PATCH(request: NextRequest, context: { params: Promise<{ path: string[] }> }) {
   return proxy(request, context);
 }

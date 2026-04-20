@@ -1,5 +1,5 @@
 import { fetchJsonOrUndefined } from "@/lib/api";
-import { buildDemoDataNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
+import { buildApiErrorNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
 
 export type EvidencePackListItem = {
   id: string;
@@ -56,34 +56,16 @@ const sourceLabelMap: Record<string, string> = {
   "public-web": "公开网页",
 };
 
-const mockEvidencePacks: EvidencePackListItem[] = [
-  {
-    id: "pack-adidas-001",
-    caseId: "case-adidas-aaodasis",
-    title: "阿波达斯商品页抓取包",
-    source: "公开网页",
-    sourceUrl: "https://example.com/brand/adidas",
-    capturedAt: "2026-04-11 10:12",
-    status: "已归档",
-    summary: "包含页面标题、来源地址、截图路径和页面源文件路径。",
-    artifactPaths: ["snapshot.png", "page.html"],
-    snapshotPath: "snapshot.png",
-    htmlPath: "page.html",
-    htmlSnippet: `<article class="evidence-card" data-case="case-adidas-aaodasis">
-  <header>
-    <h1>阿波达斯商品页抓取包</h1>
-    <p>来源：公开网页</p>
-    <time>2026-04-11 10:12</time>
-  </header>
-  <section>
-    <p>包含页面标题、来源地址、截图路径和页面源文件路径。</p>
-  </section>
-</article>`,
-  },
-];
-
 function toStringValue(value: unknown, fallback = "") {
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return fallback;
 }
 
 function toProxyAssetUrl(path: unknown) {
@@ -108,18 +90,18 @@ function normalizePack(record: ApiEvidencePack, index = 0): EvidencePackListItem
     .map((item) => toStringValue(item))
     .filter(Boolean);
   const sourceLabel = toSourceLabel(record.capture_channel, "公开网页");
-  const snippetText = toStringValue(record.note, "页面抓取内容已归档，可在后续接入真实 HTML 片段。");
+  const snippetText = toStringValue(record.note, "页面抓取内容已归档。\n可在下方进行预览与下载。");
   const htmlSnippet = [
     `<article class="evidence-card" data-source="${sourceLabel}">`,
-    `  <header>`,
+    "  <header>",
     `    <h1>${title}</h1>`,
     `    <p>来源：${sourceLabel}</p>`,
     `    <time>${toStringValue(record.created_at, "待补充")}</time>`,
-    `  </header>`,
-    `  <section>`,
+    "  </header>",
+    "  <section>",
     `    <p>${snippetText}</p>`,
-    `  </section>`,
-    `</article>`,
+    "  </section>",
+    "</article>",
   ].join("\n");
 
   return {
@@ -142,10 +124,16 @@ function normalizePack(record: ApiEvidencePack, index = 0): EvidencePackListItem
 
 export async function getEvidencePacks(): Promise<ListFetchResult<EvidencePackListItem>> {
   const payload = await fetchJsonOrUndefined<ApiEvidencePack[] | { items?: ApiEvidencePack[] }>("/evidence-packs");
-  const rawItems = Array.isArray(payload) ? payload : payload?.items;
-  if (!rawItems?.length) {
-    return { items: mockEvidencePacks, source: "mock", note: buildDemoDataNote("证据包列表") };
+
+  if (!payload) {
+    return {
+      items: [],
+      source: "error",
+      note: buildApiErrorNote("证据包列表"),
+    };
   }
+
+  const rawItems = Array.isArray(payload) ? payload : payload.items ?? [];
 
   return {
     items: rawItems.map((item, index) => normalizePack(item, index)),
@@ -155,23 +143,28 @@ export async function getEvidencePacks(): Promise<ListFetchResult<EvidencePackLi
 
 export async function getEvidencePackById(packId: string): Promise<DetailFetchResult<EvidencePackListItem>> {
   const preview = await fetchJsonOrUndefined<ApiEvidencePreviewPayload>(`/evidence-packs/${encodeURIComponent(packId)}/preview`);
-  if (!preview?.item) {
-    const payload = await fetchJsonOrUndefined<ApiEvidencePack>(`/evidence-packs/${encodeURIComponent(packId)}`);
-    if (payload) {
-      return { item: normalizePack(payload), source: "api" };
-    }
-    const item = mockEvidencePacks.find((record) => record.id === packId);
-    return item
-      ? { item, source: "mock", note: buildDemoDataNote("证据包详情") }
-      : { source: "error", note: "未找到对应证据包，当前无法展示真实数据。" };
+
+  if (preview?.item) {
+    const item = normalizePack(preview.item);
+    item.screenshotAvailable = Boolean(preview.screenshot_available);
+    item.htmlAvailable = Boolean(preview.html_available);
+    item.screenshotUrl = toProxyAssetUrl(preview.screenshot_url);
+    item.screenshotDownloadUrl = toProxyAssetUrl(preview.screenshot_download_url);
+    item.htmlDownloadUrl = toProxyAssetUrl(preview.html_download_url);
+    item.htmlSnippet = toStringValue(preview.html_excerpt, item.htmlSnippet ?? "");
+    return { item, source: "api" };
   }
 
-  const item = normalizePack(preview.item);
-  item.screenshotAvailable = Boolean(preview.screenshot_available);
-  item.htmlAvailable = Boolean(preview.html_available);
-  item.screenshotUrl = toProxyAssetUrl(preview.screenshot_url);
-  item.screenshotDownloadUrl = toProxyAssetUrl(preview.screenshot_download_url);
-  item.htmlDownloadUrl = toProxyAssetUrl(preview.html_download_url);
-  item.htmlSnippet = toStringValue(preview.html_excerpt, item.htmlSnippet ?? "");
-  return { item, source: "api" };
+  const payload = await fetchJsonOrUndefined<ApiEvidencePack>(`/evidence-packs/${encodeURIComponent(packId)}`);
+  if (!payload) {
+    return {
+      source: "error",
+      note: buildApiErrorNote("证据包详情"),
+    };
+  }
+
+  return {
+    item: normalizePack(payload),
+    source: "api",
+  };
 }

@@ -9,7 +9,7 @@ export default async function NotificationsPage() {
     getNotificationChannels(),
     getNotificationLogs(),
   ]);
-  const bannerSource = source === "api" && logSource === "api" ? "api" : "mock";
+  const bannerSource = source === "error" || logSource === "error" ? "error" : "api";
   const bannerNote = [note, logNote].filter(Boolean).join("；");
 
   return (

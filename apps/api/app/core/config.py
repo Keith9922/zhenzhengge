@@ -18,7 +18,10 @@ class Settings(BaseSettings):
         r"^http://127\.0\.0\.1:(3000|3001|3006)$"
     )
     service_tag: str = "zhenzhengge-api"
-    enable_demo_seed: bool = True
+    enable_demo_seed: bool = False
+    require_auth: bool = True
+    auth_tokens: str = "dev-admin-token:admin,dev-operator-token:operator,dev-viewer-token:viewer"
+    extension_api_token: str = ""
     llm_provider: str = "stub"
     llm_base_url: str = "https://api.openai.com/v1"
     llm_api_key: str = Field(default="", repr=False)
@@ -31,6 +34,16 @@ class Settings(BaseSettings):
     smtp_password: str = ""
     smtp_from_email: str = ""
     smtp_use_tls: bool = True
+    monitor_scheduler_enabled: bool = True
+    monitor_scheduler_interval_seconds: int = 30
+    capture_allow_http_fallback: bool = True
+    harness_agent_enabled: bool = False
+    harness_cli_command: str = "hermes"
+    harness_provider: str = "auto"
+    harness_model: str = ""
+    harness_toolsets: str = "skills,memory"
+    harness_skills: str = "hermes-agent,wps-word"
+    harness_timeout_seconds: int = 120
 
     model_config = SettingsConfigDict(
         env_prefix="ZHZG_",

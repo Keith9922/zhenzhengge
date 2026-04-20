@@ -1,4 +1,4 @@
-export type DataSourceState = "api" | "mock" | "error";
+export type DataSourceState = "api" | "error";
 
 export type ListFetchResult<T> = {
   items: T[];
@@ -12,8 +12,12 @@ export type DetailFetchResult<T> = {
   note?: string;
 };
 
-export function buildDemoDataNote(resource: string) {
-  return `当前为演示数据/模拟数据，${resource} 尚未接入真实后端。`;
+export function buildApiErrorNote(resource: string, detail?: string) {
+  if (detail) {
+    return `${resource} 接口请求失败：${detail}`;
+  }
+
+  return `${resource} 接口请求失败，请检查后端服务与环境配置。`;
 }
 
 export function getDataSourceLabel(source: DataSourceState) {
@@ -21,10 +25,5 @@ export function getDataSourceLabel(source: DataSourceState) {
     return "真实数据";
   }
 
-  if (source === "error") {
-    return "接口异常";
-  }
-
-  return "演示数据";
+  return "接口异常";
 }
-

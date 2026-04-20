@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
-from app.api.deps import get_notification_adapter
+from app.api.deps import get_audit_service, get_notification_adapter
+from app.api.security import CurrentUser, require_roles
 from app.schemas.common import ApiMessage
 from app.schemas.notification_channels import (
     NotificationChannelCreateRequest,
@@ -9,6 +10,7 @@ from app.schemas.notification_channels import (
     NotificationChannelTestRequest,
 )
 from app.services.notifications import NotificationAdapter
+from app.services.audit import AuditService
 
 router = APIRouter()
 
@@ -17,6 +19,7 @@ router = APIRouter()
 def list_logs(
     limit: int = 50,
     service: NotificationAdapter = Depends(get_notification_adapter),
+    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> list[dict[str, str | None]]:
     return service.list_logs(limit=limit)
 
@@ -24,6 +27,7 @@ def list_logs(
 @router.get("", response_model=NotificationChannelListResponse, summary="通知渠道列表")
 def list_channels(
     service: NotificationAdapter = Depends(get_notification_adapter),
+    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> NotificationChannelListResponse:
     items = service.list_channels()
     return NotificationChannelListResponse(total=len(items), items=items)
@@ -33,8 +37,19 @@ def list_channels(
 def create_channel(
     payload: NotificationChannelCreateRequest,
     service: NotificationAdapter = Depends(get_notification_adapter),
+    audit: AuditService = Depends(get_audit_service),
+    user: CurrentUser = Depends(require_roles("admin")),
 ) -> NotificationChannelRecord:
-    return service.create_channel(payload)
+    item = service.create_channel(payload)
+    audit.log(
+        actor_token=user.token,
+        actor_role=user.role,
+        action="notification_channel.create",
+        resource_type="notification_channel",
+        resource_id=item.channel_id,
+        payload={"channel_type": item.channel_type.value, "target": item.target},
+    )
+    return item
 
 
 @router.post("/{channel_id}/test", response_model=ApiMessage, summary="测试通知渠道")
@@ -42,6 +57,8 @@ def test_channel(
     channel_id: str,
     payload: NotificationChannelTestRequest,
     service: NotificationAdapter = Depends(get_notification_adapter),
+    audit: AuditService = Depends(get_audit_service),
+    user: CurrentUser = Depends(require_roles("operator", "admin")),
 ) -> ApiMessage:
     try:
         result = service.test_channel(channel_id, subject=payload.subject, body=payload.body)
@@ -49,4 +66,12 @@ def test_channel(
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except Exception as exc:
         raise HTTPException(status_code=400, detail=f"通知测试失败：{exc}") from exc
+    audit.log(
+        actor_token=user.token,
+        actor_role=user.role,
+        action="notification_channel.test",
+        resource_type="notification_channel",
+        resource_id=channel_id,
+        payload={"subject": payload.subject, "status": result["status"]},
+    )
     return ApiMessage(message=result["detail"])

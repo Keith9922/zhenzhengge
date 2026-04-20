@@ -1,12 +1,68 @@
 import Link from "next/link";
-import { ArrowRight, BookOpen, ExternalLink, ShieldCheck } from "lucide-react";
+import { ArrowRight, BookOpen, ExternalLink, FileText, ScanSearch, ShieldCheck } from "lucide-react";
 import { FeatureCard } from "@/components/feature-card";
 import { LogoMark } from "@/components/logo";
 import { SectionHeading } from "@/components/section-heading";
 import { SiteHeader } from "@/components/site-header";
-import { docsIndex, productHighlights, workflowSteps } from "@/lib/site";
+import { docsIndex } from "@/lib/site";
 
 export default function HomePage() {
+  const simplifiedWorkflow = [
+    {
+      title: "找到页面",
+      detail: "先把疑似侵权页面记录下来。",
+    },
+    {
+      title: "保存证据",
+      detail: "截图、页面信息和说明一起留存。",
+    },
+    {
+      title: "生成草稿",
+      detail: "系统根据证据整理出草稿内容。",
+    },
+    {
+      title: "人工确认",
+      detail: "最后由业务或法务审核后再处理。",
+    },
+  ];
+
+  const coreHighlights = [
+    {
+      title: "页面取证",
+      description: "先把页面内容和截图拿到。",
+      icon: ScanSearch,
+    },
+    {
+      title: "证据归档",
+      description: "把证据整理成一份可复查的记录。",
+      icon: ShieldCheck,
+    },
+    {
+      title: "草稿生成",
+      description: "根据证据生成可继续修改的草稿。",
+      icon: FileText,
+    },
+  ];
+
+  const heroFlow = [
+    {
+      title: "打开页面",
+      detail: "可以手动操作，也可以自动监控。",
+    },
+    {
+      title: "保存证据",
+      detail: "截图和页面信息一起留存。",
+    },
+    {
+      title: "生成草稿",
+      detail: "系统整理出可审核草稿。",
+    },
+    {
+      title: "人工确认",
+      detail: "确认后再进入正式处理。",
+    },
+  ];
+
   return (
     <div className="min-h-screen text-ink">
       <SiteHeader />
@@ -59,15 +115,15 @@ export default function HomePage() {
               <div className="rounded-[2rem] border border-white/80 bg-white/80 p-6 shadow-soft backdrop-blur">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-semibold text-brand-700">产品流程</p>
-                    <p className="text-xs text-slate-500">发现线索 / 取证留痕 / 风险研判 / 草稿生成</p>
+                    <p className="text-sm font-semibold text-brand-700">怎么用</p>
+                    <p className="text-xs text-slate-500">按四步走，先留证，再确认。</p>
                   </div>
                   <div className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">
                     公开网页场景
                   </div>
                 </div>
                 <div className="mt-6 space-y-4">
-                  {workflowSteps.slice(0, 4).map((step, index) => (
+                  {heroFlow.map((step, index) => (
                     <div key={step.title} className="flex gap-4 rounded-2xl bg-slate-50 px-4 py-4">
                       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-600 text-sm font-semibold text-white">
                         {index + 1}
@@ -82,11 +138,9 @@ export default function HomePage() {
                 <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-ink">
                     <ShieldCheck className="h-4 w-4 text-brand-700" />
-                    使用边界
+                    说明
                   </div>
-                  <p className="mt-2 text-sm leading-6 text-slate-600">
-                    当前版本适合处理公开网页中的侵权线索、证据留存与材料整理，最终判断和正式动作仍需人工确认。
-                  </p>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">两种方式都会进入后续证据归档和草稿链路，正式处理前仍需人工确认。</p>
                 </div>
               </div>
             </div>
@@ -96,11 +150,11 @@ export default function HomePage() {
         <section className="mx-auto max-w-7xl px-6 py-6 lg:px-8">
           <SectionHeading
             eyebrow="核心能力"
-            title="先把证据链路跑通，再进入文书与审核"
-            description="初版重心放在取证固证，文书和举报材料作为后续连带能力，保证产品闭环完整但范围可控。"
+            title="核心能力就三件事"
+            description="取证、归档、出草稿。先把最常用的链路讲清楚。"
           />
-          <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-            {productHighlights.map((item) => (
+          <div className="mt-8 grid gap-5 xl:grid-cols-3">
+            {coreHighlights.map((item) => (
               <FeatureCard key={item.title} {...item} />
             ))}
           </div>
@@ -109,19 +163,19 @@ export default function HomePage() {
         <section id="workflow" className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
           <SectionHeading
             eyebrow="功能链路"
-            title="围绕侵权响应，把线索变成证据、材料与草稿"
-            description="证证鸽强调从线索发现、证据留存到草稿生成与人工审核导出的一体化体验，帮助团队更快进入下一步处置。"
+            title="四步走完这条链路"
+            description="先记下页面，再留证据，然后出草稿，最后人工确认。"
           />
-          <div className="mt-8 grid gap-4 lg:grid-cols-2">
-            {workflowSteps.map((step, index) => (
-              <div key={step.title} className="rounded-3xl border border-white/70 bg-white/80 p-6 shadow-soft">
+          <div className="mt-8 grid gap-4 md:grid-cols-2">
+            {simplifiedWorkflow.map((step, index) => (
+              <div key={step.title} className="rounded-3xl border border-white/70 bg-white/80 p-5 shadow-soft">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand-600 text-sm font-semibold text-white">
                     {index + 1}
                   </div>
-                  <h3 className="text-lg font-semibold text-ink">{step.title}</h3>
+                  <h3 className="text-base font-semibold text-ink">{step.title}</h3>
                 </div>
-                <p className="mt-4 text-sm leading-7 text-slate-600">{step.detail}</p>
+                <p className="mt-3 text-sm leading-6 text-slate-600">{step.detail}</p>
               </div>
             ))}
           </div>

@@ -18,20 +18,26 @@ export default async function CasesPage() {
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
-        {items.map((item) => (
-          <Link
-            key={item.id}
-            href={`/workspace/cases/${item.id}`}
-            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-200"
-          >
-            <div className="flex items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-ink">{item.title}</h2>
-              <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">{item.status}</span>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{item.summary}</p>
-            <p className="mt-4 text-xs text-slate-500">来源：{item.source} · 更新：{item.updatedAt}</p>
-          </Link>
-        ))}
+        {items.length ? (
+          items.map((item) => (
+            <Link
+              key={item.id}
+              href={`/workspace/cases/${item.id}`}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-200"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-ink">{item.title}</h2>
+                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">{item.status}</span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{item.summary}</p>
+              <p className="mt-4 text-xs text-slate-500">来源：{item.source} · 更新：{item.updatedAt}</p>
+            </Link>
+          ))
+        ) : (
+          <article className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-sm leading-7 text-slate-600 lg:col-span-3">
+            当前暂无案件数据，可先通过插件采集线索或在监控任务命中后自动建案。
+          </article>
+        )}
       </div>
     </section>
   );

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { getCaseById } from "@/lib/cases";
 
@@ -14,7 +13,20 @@ export default async function CaseDetailPage({ params }: CaseDetailPageProps) {
   const { item, source, note } = await getCaseById(caseId);
 
   if (!item) {
-    notFound();
+    return (
+      <section className="space-y-6">
+        <DataSourceBanner source="error" label="案件详情" note={note} />
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">无法加载案件详情</h1>
+          <p className="mt-3 text-sm leading-7 text-slate-600">当前未获取到可展示的案件数据，请检查后端服务后重试。</p>
+          <div className="mt-5">
+            <Link href="/workspace/cases" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+              返回案件列表
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (

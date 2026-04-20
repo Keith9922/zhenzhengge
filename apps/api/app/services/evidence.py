@@ -1,4 +1,5 @@
 import base64
+from hashlib import sha256
 from pathlib import Path
 
 from app.core.storage import SQLiteStorage
@@ -51,7 +52,8 @@ class EvidenceService:
         html_path.parent.mkdir(parents=True, exist_ok=True)
         screenshot_path.parent.mkdir(parents=True, exist_ok=True)
 
-        html_path.write_text(raw_html or "<html><body>capture placeholder</body></html>", encoding="utf-8")
+        html_payload = raw_html or ""
+        html_path.write_text(html_payload, encoding="utf-8")
 
         if screenshot_bytes:
             screenshot_path.write_bytes(screenshot_bytes)
@@ -64,7 +66,17 @@ class EvidenceService:
         elif not screenshot_path.exists():
             screenshot_path.write_bytes(b"")
 
-        return record
+        html_sha = sha256(html_path.read_bytes()).hexdigest()
+        screenshot_sha = sha256(screenshot_path.read_bytes()).hexdigest()
+        chain_sha = sha256(f"{record.hash_sha256}:{html_sha}:{screenshot_sha}".encode("utf-8")).hexdigest()
+        updated = self.storage.update_evidence_hashes(
+            evidence_pack_id=record.evidence_pack_id,
+            hash_sha256=chain_sha,
+            html_sha256=html_sha,
+            screenshot_sha256=screenshot_sha,
+            chain_sha256=chain_sha,
+        )
+        return updated or record
 
     def resolve_html_path(self, record: EvidencePackRecord) -> Path:
         return self.storage.base_dir / record.html_path

@@ -35,6 +35,11 @@ class DocumentDraftReviewRequest(BaseModel):
     comment: str = ""
 
 
+class DocumentDraftUpdateRequest(BaseModel):
+    content: str
+    title: str | None = None
+
+
 class DocumentDraftExportResponse(BaseModel):
     item: DocumentDraftRecord
     file_path: str | None = None

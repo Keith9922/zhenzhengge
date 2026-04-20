@@ -126,6 +126,7 @@ class OpenAICompatibleLLMService:
             "你是证证鸽的知识产权文书初稿助手。"
             "请根据模板名、案件信息、证据要点和补充变量，输出适合法务审核和 Word 导出的中文 Markdown 草稿。"
             "语气必须正式、克制、结构清晰，不要把未确认事实写成既成结论，不要直接输出最终定稿版本。"
+            "每一条核心主张都要引用对应 EvidenceID（例如：EvidenceID=ep-0001）。"
             "律师函应包含函件对象、事实概述、证据依据、处理请求、权利保留和附件说明；"
             "平台投诉函应包含投诉对象、投诉事项、证据依据、请求平台处理事项和附件说明；"
             "证据目录应包含案件概况、证据清单和补强建议。"
@@ -418,11 +419,15 @@ class OpenAICompatibleLLMService:
         for index, item in enumerate(evidence_context, start=1):
             title = str(item.get("source_title") or item.get("title") or f"证据 {index}")
             url = str(item.get("source_url") or item.get("url") or "")
+            evidence_id = str(item.get("evidence_pack_id") or item.get("evidence_id") or "")
             note = str(item.get("note") or item.get("summary") or "")
             capture_channel = str(item.get("capture_channel") or "")
             captured_at = str(item.get("captured_at") or "")
+            hash_sha256 = str(item.get("hash_sha256") or item.get("chain_sha256") or "")
             html_excerpt = str(item.get("html_excerpt") or "")
             parts = [f"{index}. {title}"]
+            if evidence_id:
+                parts.append(f"EvidenceID={evidence_id}")
             if url:
                 parts.append(f"URL={url}")
             if note:
@@ -431,6 +436,8 @@ class OpenAICompatibleLLMService:
                 parts.append(f"渠道={capture_channel}")
             if captured_at:
                 parts.append(f"取证时间={captured_at}")
+            if hash_sha256:
+                parts.append(f"HASH={hash_sha256}")
             if html_excerpt:
                 parts.append(f"页面摘要={html_excerpt}")
             lines.append(" | ".join(parts))

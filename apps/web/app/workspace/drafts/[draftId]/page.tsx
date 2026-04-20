@@ -1,7 +1,7 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { DraftActions } from "@/components/workspace/draft-actions";
+import { DraftEditor } from "@/components/workspace/draft-editor";
 import { getDraftById } from "@/lib/drafts";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +15,20 @@ export default async function DraftDetailPage({ params }: DraftDetailPageProps) 
   const { item, source, note } = await getDraftById(draftId);
 
   if (!item) {
-    notFound();
+    return (
+      <section className="space-y-6">
+        <DataSourceBanner source="error" label="草稿详情" note={note} />
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+          <h1 className="text-2xl font-semibold tracking-tight text-ink">无法加载草稿详情</h1>
+          <p className="mt-3 text-sm leading-7 text-slate-600">当前未获取到可展示的草稿数据，请检查后端服务后重试。</p>
+          <div className="mt-5">
+            <Link href="/workspace/drafts" className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700">
+              返回草稿列表
+            </Link>
+          </div>
+        </div>
+      </section>
+    );
   }
 
   return (
@@ -34,19 +47,15 @@ export default async function DraftDetailPage({ params }: DraftDetailPageProps) 
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
-        <article className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
-          <h2 className="text-lg font-semibold text-ink">草稿内容</h2>
-          <pre className="mt-4 overflow-x-auto whitespace-pre-wrap rounded-3xl bg-slate-50 p-5 text-sm leading-7 text-slate-700">
-            {item.content}
-          </pre>
-          {item.reviewComment ? (
-            <div className="mt-5 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <h3 className="text-sm font-semibold text-ink">最近备注</h3>
-              <p className="mt-2 text-sm leading-6 text-slate-600">{item.reviewComment}</p>
-            </div>
-          ) : null}
-        </article>
+      <div className="space-y-6">
+        <DraftEditor draftId={item.id} initialContent={item.content} />
+
+        {item.reviewComment ? (
+          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-ink">最近备注</h2>
+            <p className="mt-3 break-words text-sm leading-6 text-slate-600">{item.reviewComment}</p>
+          </article>
+        ) : null}
 
         <DraftActions draftId={item.id} status={item.status} exportPath={item.exportPath} />
       </div>

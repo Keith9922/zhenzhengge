@@ -9,6 +9,7 @@ from app.api.v1.endpoints.health import router as health_router
 from app.core.config import Settings, get_settings
 from app.core.storage import SQLiteStorage
 from app.services.cases import CaseService
+from app.services.audit import AuditService
 from app.services.drafts import DocumentDraftService
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
@@ -32,9 +33,13 @@ async def lifespan(app: FastAPI):
         "cases": CaseService(app.state.storage),
         "evidence": EvidenceService(app.state.storage),
         "templates": DocumentTemplateService(),
-        "hermes": HermesOrchestrator(llm_service=llm_service),
-        "playwright": PlaywrightWorker(base_dir=app.state.storage.base_dir),
+        "hermes": HermesOrchestrator(llm_service=llm_service, settings=app.state.settings),
+        "playwright": PlaywrightWorker(
+            base_dir=app.state.storage.base_dir,
+            allow_http_fallback=app.state.settings.capture_allow_http_fallback,
+        ),
         "notifications": NotificationAdapter(app.state.storage, app.state.settings),
+        "audit": AuditService(app.state.storage),
         "monitoring": None,
         "intake": None,
         "drafts": None,
@@ -53,6 +58,7 @@ async def lifespan(app: FastAPI):
         hermes=app.state.services["hermes"],
         playwright=app.state.services["playwright"],
         notifications=app.state.services["notifications"],
+        settings=app.state.settings,
     )
     app.state.services["intake"] = IntakeService(
         case_service=app.state.services["cases"],
@@ -61,7 +67,11 @@ async def lifespan(app: FastAPI):
         hermes=app.state.services["hermes"],
         playwright=app.state.services["playwright"],
     )
+    if app.state.settings.monitor_scheduler_enabled:
+        app.state.services["monitoring"].start_scheduler()
     yield
+    if app.state.settings.monitor_scheduler_enabled:
+        app.state.services["monitoring"].stop_scheduler()
 
 
 def create_app(settings_obj: Settings | None = None) -> FastAPI:

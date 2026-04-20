@@ -8,7 +8,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
-[![Next.js](https://img.shields.io/badge/Next.js-14-black.svg)](https://nextjs.org/)
+[![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green.svg)](https://fastapi.tiangolo.com/)
 
 </div>
@@ -235,11 +235,23 @@ ZHZG_DATABASE_URL=sqlite:///./data/zhenzhengge.db
 # CORS（允许的前端地址）
 ZHZG_CORS_ORIGINS=["http://localhost:3000"]
 
+# 鉴权与角色
+ZHZG_REQUIRE_AUTH=true
+ZHZG_AUTH_TOKENS=dev-admin-token:admin,dev-operator-token:operator,dev-viewer-token:viewer
+
 # LLM 配置
 ZHZG_LLM_PROVIDER=mimo
 ZHZG_LLM_BASE_URL=https://token-plan-cn.xiaomimimo.com/v1
 ZHZG_LLM_API_KEY=your_api_key_here
 ZHZG_LLM_MODEL=mimo-v2-pro
+
+# Harness / Hermes 编排（可选）
+ZHZG_HARNESS_AGENT_ENABLED=false
+ZHZG_HARNESS_CLI_COMMAND=hermes
+ZHZG_HARNESS_PROVIDER=auto
+ZHZG_HARNESS_MODEL=
+ZHZG_HARNESS_TOOLSETS=skills,memory
+ZHZG_HARNESS_SKILLS=hermes-agent,wps-word
 
 # 通知配置（可选）
 ZHZG_SMTP_HOST=smtp.example.com
@@ -253,6 +265,7 @@ ZHZG_SMTP_FROM_EMAIL=
 
 ```env
 API_BASE_URL=http://127.0.0.1:8000
+API_AUTH_TOKEN=dev-admin-token
 NEXT_PUBLIC_REPO_URL=https://github.com/Keith9922/zhenzhengge
 ```
 
@@ -262,6 +275,7 @@ NEXT_PUBLIC_REPO_URL=https://github.com/Keith9922/zhenzhengge
 PLASMO_PUBLIC_API_BASE_URL=http://127.0.0.1:8000
 PLASMO_PUBLIC_WEB_BASE_URL=http://localhost:3000
 PLASMO_PUBLIC_ALLOW_SIMULATED_SUBMISSION=false
+PLASMO_PUBLIC_API_TOKEN=dev-operator-token
 ```
 
 ---
@@ -296,6 +310,8 @@ pnpm build:extension      # 构建生产版本
 | AI 文书生成 | 律师函、平台投诉函、证据目录 | ✅ 已完成 |
 | Word 导出 | 一键导出标准 .docx 文件 | ✅ 已完成 |
 | 邮件通知 | 命中规则后自动推送 | ✅ 已完成 |
+| 鉴权与角色 | viewer / operator / admin 角色隔离 | ✅ 已完成 |
+| 审计日志 | intake/草稿/导出等关键动作可追溯 | ✅ 已完成 |
 | 可信时间戳 | 取证固证时间认证（当前未接入 API 渠道） | 🔜 规划中 |
 
 ---
@@ -303,9 +319,9 @@ pnpm build:extension      # 构建生产版本
 ## 后续规划
 
 - [ ] **可信时间戳固证**：正式投产后，在取证固证环节接入可信时间戳能力，进一步提升留痕精度与可追溯性
-- [ ] **定时自动监测**：后台持续巡检，无需人工干预
-- [ ] **登录与权限**：团队协作、角色权限管理
-- [ ] **审计回溯**：操作日志、证据链追溯
+- [ ] **平台化投诉导出**：补齐多平台投诉材料模板与附件规则（含字段映射）
+- [ ] **证据链法务校验**：补齐证据链完整性校验、链路签名与复核规则
+- [ ] **组织化协作流**：补齐多人审核流、指派、SLA 与审批状态看板
 
 ---
 

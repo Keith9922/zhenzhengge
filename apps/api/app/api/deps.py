@@ -1,6 +1,7 @@
 from fastapi import Request
 
 from app.services.cases import CaseService
+from app.services.audit import AuditService
 from app.services.drafts import DocumentDraftService
 from app.services.evidence import EvidenceService
 from app.services.intake import IntakeService
@@ -45,3 +46,7 @@ def get_notification_adapter(request: Request) -> NotificationAdapter:
 
 def get_intake_service(request: Request) -> IntakeService:
     return request.app.state.services["intake"]
+
+
+def get_audit_service(request: Request) -> AuditService:
+    return request.app.state.services["audit"]

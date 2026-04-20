@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from difflib import SequenceMatcher
+import threading
 from urllib.parse import urlparse
 
+from app.core.config import Settings
 from app.core.storage import SQLiteStorage
 from app.schemas.cases import CaseCreateRequest, CaseDetail
 from app.schemas.evidence import EvidencePackRecord
-from app.schemas.monitoring import MonitorTaskCreateRequest, MonitorTaskRecord
+from app.schemas.monitoring import (
+    MonitorTaskCreateRequest,
+    MonitorTaskRecord,
+    MonitorTaskStatus,
+)
 from app.services.cases import CaseService
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
@@ -36,6 +43,7 @@ class MonitorTaskService:
         hermes: HermesOrchestrator,
         playwright: PlaywrightWorker,
         notifications: NotificationAdapter,
+        settings: Settings,
     ) -> None:
         self.storage = storage
         self.case_service = case_service
@@ -43,6 +51,10 @@ class MonitorTaskService:
         self.hermes = hermes
         self.playwright = playwright
         self.notifications = notifications
+        self.settings = settings
+        self._stop_event = threading.Event()
+        self._scheduler_thread: threading.Thread | None = None
+        self._run_lock = threading.Lock()
 
     def list_tasks(self) -> list[MonitorTaskRecord]:
         return self.storage.list_monitor_tasks()
@@ -56,19 +68,68 @@ class MonitorTaskService:
     def toggle_task(self, task_id: str, enabled: bool) -> MonitorTaskRecord | None:
         return self.storage.toggle_monitor_task(task_id, enabled)
 
-    def run_task(self, task_id: str) -> MonitorRunResult | None:
+    def start_scheduler(self) -> None:
+        if self._scheduler_thread and self._scheduler_thread.is_alive():
+            return
+        self._stop_event.clear()
+        self._scheduler_thread = threading.Thread(target=self._scheduler_loop, name="monitor-scheduler", daemon=True)
+        self._scheduler_thread.start()
+
+    def stop_scheduler(self) -> None:
+        self._stop_event.set()
+        if self._scheduler_thread and self._scheduler_thread.is_alive():
+            self._scheduler_thread.join(timeout=2.0)
+
+    def run_due_tasks(self) -> int:
+        now = datetime.now(timezone.utc)
+        triggered = 0
+        for task in self.list_tasks():
+            if task.status != MonitorTaskStatus.active:
+                continue
+            if not self._is_due(task, now):
+                continue
+            result = self.run_task(task.task_id, trigger="scheduler")
+            if result is not None:
+                triggered += 1
+        return triggered
+
+    def run_task(self, task_id: str, *, trigger: str = "manual") -> MonitorRunResult | None:
+        if not self._run_lock.acquire(timeout=30):
+            return None
+        run_id = self.storage.create_monitor_run(task_id=task_id)
+        try:
+            return self._run_task_inner(task_id, run_id=run_id, trigger=trigger)
+        finally:
+            self._run_lock.release()
+
+    def _run_task_inner(self, task_id: str, *, run_id: str, trigger: str) -> MonitorRunResult | None:
         task = self.storage.mark_monitor_task_run(task_id)
         if task is None:
+            self.storage.finish_monitor_run(
+                run_id=run_id,
+                status="failed",
+                risk_score=0,
+                detail="监控任务不存在",
+            )
             return None
 
         capture = self.playwright.capture(url=task.target_url, title=task.name)
         risk_score = self._calculate_risk_score(task, capture.title, capture.page_text, capture.html_content)
         if risk_score < task.risk_threshold:
+            detail = (
+                f"未命中阈值，trigger={trigger}，risk_score={risk_score}，threshold={task.risk_threshold}"
+            )
+            self.storage.finish_monitor_run(
+                run_id=run_id,
+                status="missed",
+                risk_score=risk_score,
+                detail=detail,
+            )
             return MonitorRunResult(
                 task=task,
                 matched=False,
                 risk_score=risk_score,
-                detail=f"未命中阈值，risk_score={risk_score}，threshold={task.risk_threshold}",
+                detail=detail,
             )
 
         suspect_name = self._derive_suspect_name(task, capture.title)
@@ -94,7 +155,7 @@ class MonitorTaskService:
             note=f"monitor-task:{task.task_id}",
             capture_channel="monitoring",
         )
-        self.evidence_service.persist_capture_artifacts(
+        evidence_pack = self.evidence_service.persist_capture_artifacts(
             evidence_pack,
             raw_html=capture.html_content,
             screenshot_bytes=capture.screenshot_bytes,
@@ -118,6 +179,15 @@ class MonitorTaskService:
             task_id=task.task_id,
             case_id=case.case_id,
         )
+        detail = "命中监控规则，已创建案件、证据包并触发通知"
+        self.storage.finish_monitor_run(
+            run_id=run_id,
+            status="matched",
+            risk_score=risk_score,
+            case_id=case.case_id,
+            evidence_pack_id=evidence_pack.evidence_pack_id,
+            detail=detail,
+        )
         return MonitorRunResult(
             task=task,
             matched=True,
@@ -125,8 +195,34 @@ class MonitorTaskService:
             case=case,
             evidence_pack=evidence_pack,
             notifications_sent=len(notify_results),
-            detail="命中监控规则，已创建案件、证据包并触发通知",
+            detail=detail,
         )
+
+    def list_task_runs(self, task_id: str, *, limit: int = 20) -> list[dict[str, str | int | None]]:
+        rows = self.storage.list_monitor_runs(task_id=task_id, limit=limit)
+        return [
+            {
+                "run_id": row["run_id"],
+                "task_id": row["task_id"],
+                "started_at": row["started_at"],
+                "finished_at": row["finished_at"],
+                "status": row["status"],
+                "risk_score": row["risk_score"],
+                "case_id": row["case_id"],
+                "evidence_pack_id": row["evidence_pack_id"],
+                "detail": row["detail"],
+            }
+            for row in rows
+        ]
+
+    def _scheduler_loop(self) -> None:
+        interval = max(5, int(self.settings.monitor_scheduler_interval_seconds))
+        while not self._stop_event.is_set():
+            try:
+                self.run_due_tasks()
+            except Exception:
+                pass
+            self._stop_event.wait(interval)
 
     def _generate_case_description(
         self,
@@ -183,6 +279,13 @@ class MonitorTaskService:
             return "medium"
         return "low"
 
+    @staticmethod
+    def _is_due(task: MonitorTaskRecord, now: datetime) -> bool:
+        if task.last_run_at is None:
+            return True
+        delta = now - task.last_run_at
+        return delta.total_seconds() >= task.frequency_minutes * 60
+
     def _calculate_risk_score(
         self,
         task: MonitorTaskRecord,
@@ -191,7 +294,16 @@ class MonitorTaskService:
         html_content: str,
     ) -> int:
         text = " ".join(
-            part for part in [captured_title.strip(), page_text.strip(), html_content.strip()] if part
+            part
+            for part in [
+                task.name.strip(),
+                task.site.strip(),
+                task.target_url.strip(),
+                captured_title.strip(),
+                page_text.strip(),
+                html_content.strip(),
+            ]
+            if part
         ).lower()
         if not text:
             return 0

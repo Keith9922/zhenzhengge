@@ -18,20 +18,26 @@ export default async function EvidencePacksPage() {
         </p>
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        {items.map((item) => (
-          <Link
-            key={item.id}
-            href={`/workspace/evidence-packs/${item.id}`}
-            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-200"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-lg font-semibold text-ink">{item.title}</h2>
-              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{item.status}</span>
-            </div>
-            <p className="mt-3 text-sm leading-6 text-slate-600">{item.summary}</p>
-            <p className="mt-4 text-xs text-slate-500">案件：{item.caseId} · 采集时间：{item.capturedAt}</p>
-          </Link>
-        ))}
+        {items.length ? (
+          items.map((item) => (
+            <Link
+              key={item.id}
+              href={`/workspace/evidence-packs/${item.id}`}
+              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-200"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-lg font-semibold text-ink">{item.title}</h2>
+                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">{item.status}</span>
+              </div>
+              <p className="mt-3 text-sm leading-6 text-slate-600">{item.summary}</p>
+              <p className="mt-4 text-xs text-slate-500">案件：{item.caseId} · 采集时间：{item.capturedAt}</p>
+            </Link>
+          ))
+        ) : (
+          <article className="rounded-3xl border border-dashed border-slate-300 bg-white p-6 text-sm leading-7 text-slate-600 lg:col-span-2">
+            当前暂无证据包数据，可先在案件详情页或浏览器插件中执行取证流程。
+          </article>
+        )}
       </div>
     </section>
   );

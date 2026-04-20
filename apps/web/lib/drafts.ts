@@ -1,5 +1,5 @@
 import { fetchJsonOrUndefined } from "@/lib/api";
-import { buildDemoDataNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
+import { buildApiErrorNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
 
 export type DraftItem = {
   id: string;
@@ -32,21 +32,16 @@ type ApiDraftListPayload = {
   items?: ApiDraft[];
 };
 
-const mockDrafts: DraftItem[] = [
-  {
-    id: "draft-0001",
-    caseId: "case-zhzg-0001",
-    title: "阿迪达斯变体商品页疑似仿冒 - 律师函初稿",
-    status: "generated",
-    createdAt: "2026-04-11T08:00:00+00:00",
-    updatedAt: "2026-04-11T08:00:00+00:00",
-    templateKey: "lawyer-letter",
-    content: "## 律师函初稿\n\n现就相关页面中的疑似侵权展示提出说明与整改要求。",
-  },
-];
-
 function toStringValue(value: unknown, fallback = "") {
-  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+  if (typeof value === "string" && value.trim()) {
+    return value.trim();
+  }
+
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return String(value);
+  }
+
+  return fallback;
 }
 
 function normalizeDraft(record: ApiDraft, index = 0): DraftItem {
@@ -67,12 +62,16 @@ function normalizeDraft(record: ApiDraft, index = 0): DraftItem {
 export async function getDrafts(caseId?: string): Promise<ListFetchResult<DraftItem>> {
   const query = caseId ? `?case_id=${encodeURIComponent(caseId)}` : "";
   const payload = await fetchJsonOrUndefined<ApiDraftListPayload>(`/document-drafts${query}`);
-  const items = payload?.items;
 
-  if (!items?.length) {
-    const fallback = caseId ? mockDrafts.filter((item) => item.caseId === caseId) : mockDrafts;
-    return { items: fallback, source: "mock", note: buildDemoDataNote("草稿列表") };
+  if (!payload) {
+    return {
+      items: [],
+      source: "error",
+      note: buildApiErrorNote("草稿列表"),
+    };
   }
+
+  const items = payload.items ?? [];
 
   return {
     items: items.map((item, index) => normalizeDraft(item, index)),
@@ -82,12 +81,16 @@ export async function getDrafts(caseId?: string): Promise<ListFetchResult<DraftI
 
 export async function getDraftById(draftId: string): Promise<DetailFetchResult<DraftItem>> {
   const payload = await fetchJsonOrUndefined<ApiDraft>(`/document-drafts/${encodeURIComponent(draftId)}`);
+
   if (!payload) {
-    const item = mockDrafts.find((record) => record.id === draftId);
-    return item
-      ? { item, source: "mock", note: buildDemoDataNote("草稿详情") }
-      : { source: "error", note: "未找到对应草稿，当前无法展示真实数据。" };
+    return {
+      source: "error",
+      note: buildApiErrorNote("草稿详情"),
+    };
   }
 
-  return { item: normalizeDraft(payload), source: "api" };
+  return {
+    item: normalizeDraft(payload),
+    source: "api",
+  };
 }

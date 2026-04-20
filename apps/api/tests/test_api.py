@@ -18,6 +18,8 @@ def build_test_settings(db_url: str | None = None) -> Settings:
         llm_provider="stub",
         llm_api_key="",
         enable_demo_seed=False,
+        require_auth=False,
+        monitor_scheduler_enabled=False,
     )
 
 
@@ -266,7 +268,7 @@ def test_monitoring_and_notification_routes():
                 json={"subject": "测试通知", "body": "这是一条测试通知"},
             )
             assert test_result.status_code == 200
-            assert "未实际发送" in test_result.json()["message"] or "已发送" in test_result.json()["message"]
+            assert "发送失败" in test_result.json()["message"] or "已发送" in test_result.json()["message"]
 
             logs = client.get("/api/v1/notification-channels/logs")
             assert logs.status_code == 200

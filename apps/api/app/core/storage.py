@@ -93,6 +93,9 @@ class SQLiteStorage:
                     capture_channel TEXT NOT NULL,
                     note TEXT,
                     hash_sha256 TEXT NOT NULL,
+                    html_sha256 TEXT NOT NULL DEFAULT '',
+                    screenshot_sha256 TEXT NOT NULL DEFAULT '',
+                    chain_sha256 TEXT NOT NULL DEFAULT '',
                     snapshot_path TEXT NOT NULL,
                     html_path TEXT NOT NULL,
                     created_at TEXT NOT NULL,
@@ -154,8 +157,38 @@ class SQLiteStorage:
                     FOREIGN KEY(task_id) REFERENCES monitor_tasks(task_id),
                     FOREIGN KEY(case_id) REFERENCES cases(case_id)
                 );
+
+                CREATE TABLE IF NOT EXISTS monitor_runs (
+                    run_id TEXT PRIMARY KEY,
+                    task_id TEXT NOT NULL,
+                    started_at TEXT NOT NULL,
+                    finished_at TEXT,
+                    status TEXT NOT NULL,
+                    risk_score INTEGER NOT NULL DEFAULT 0,
+                    case_id TEXT,
+                    evidence_pack_id TEXT,
+                    detail TEXT NOT NULL DEFAULT '',
+                    FOREIGN KEY(task_id) REFERENCES monitor_tasks(task_id),
+                    FOREIGN KEY(case_id) REFERENCES cases(case_id),
+                    FOREIGN KEY(evidence_pack_id) REFERENCES evidence_packs(evidence_pack_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS audit_logs (
+                    audit_id TEXT PRIMARY KEY,
+                    actor_token TEXT NOT NULL,
+                    actor_role TEXT NOT NULL,
+                    action TEXT NOT NULL,
+                    resource_type TEXT NOT NULL,
+                    resource_id TEXT NOT NULL,
+                    request_id TEXT NOT NULL,
+                    payload_json TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
                 """
             )
+            self._ensure_column(conn, "evidence_packs", "html_sha256", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(conn, "evidence_packs", "screenshot_sha256", "TEXT NOT NULL DEFAULT ''")
+            self._ensure_column(conn, "evidence_packs", "chain_sha256", "TEXT NOT NULL DEFAULT ''")
 
     def seed_demo_data(self) -> None:
         with self.connect() as conn:
@@ -329,6 +362,14 @@ class SQLiteStorage:
                     ),
                 )
 
+    @staticmethod
+    def _ensure_column(conn: sqlite3.Connection, table: str, column: str, definition: str) -> None:
+        rows = conn.execute(f"PRAGMA table_info({table})").fetchall()
+        existing = {row[1] for row in rows}
+        if column in existing:
+            return
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {definition}")
+
     def _row_to_case_detail(self, row: sqlite3.Row) -> CaseDetail:
         return CaseDetail(
             case_id=row["case_id"],
@@ -361,6 +402,7 @@ class SQLiteStorage:
         )
 
     def _row_to_evidence(self, row: sqlite3.Row) -> EvidencePackRecord:
+        keys = set(row.keys())
         return EvidencePackRecord(
             evidence_pack_id=row["evidence_pack_id"],
             case_id=row["case_id"],
@@ -369,6 +411,9 @@ class SQLiteStorage:
             capture_channel=row["capture_channel"],
             note=row["note"],
             hash_sha256=row["hash_sha256"],
+            html_sha256=row["html_sha256"] if "html_sha256" in keys else "",
+            screenshot_sha256=row["screenshot_sha256"] if "screenshot_sha256" in keys else "",
+            chain_sha256=row["chain_sha256"] if "chain_sha256" in keys else "",
             snapshot_path=row["snapshot_path"],
             html_path=row["html_path"],
             created_at=datetime.fromisoformat(row["created_at"]),
@@ -526,6 +571,9 @@ class SQLiteStorage:
             capture_channel=payload.capture_channel,
             note=payload.note,
             hash_sha256=digest,
+            html_sha256="",
+            screenshot_sha256="",
+            chain_sha256=digest,
             snapshot_path=f"evidence/{payload.case_id}/snapshot-{serial:04d}.png",
             html_path=f"evidence/{payload.case_id}/page-{serial:04d}.html",
             created_at=created_at,
@@ -535,9 +583,9 @@ class SQLiteStorage:
                 """
                 INSERT INTO evidence_packs (
                     evidence_pack_id, case_id, source_url, source_title,
-                    capture_channel, note, hash_sha256, snapshot_path,
+                    capture_channel, note, hash_sha256, html_sha256, screenshot_sha256, chain_sha256, snapshot_path,
                     html_path, created_at, status
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     record.evidence_pack_id,
@@ -547,6 +595,9 @@ class SQLiteStorage:
                     record.capture_channel,
                     record.note,
                     record.hash_sha256,
+                    record.html_sha256,
+                    record.screenshot_sha256,
+                    record.chain_sha256,
                     record.snapshot_path,
                     record.html_path,
                     record.created_at.isoformat(),
@@ -663,6 +714,39 @@ class SQLiteStorage:
                 """,
                 (status.value, review_comment, updated_at, draft_id),
             )
+            row = conn.execute(
+                "SELECT * FROM document_drafts WHERE draft_id = ?",
+                (draft_id,),
+            ).fetchone()
+        return self._row_to_draft(row) if row else None
+
+    def update_document_draft_content(
+        self,
+        *,
+        draft_id: str,
+        content: str,
+        title: str | None = None,
+    ) -> DocumentDraftRecord | None:
+        updated_at = _now_iso()
+        with self.connect() as conn:
+            if title is None:
+                conn.execute(
+                    """
+                    UPDATE document_drafts
+                    SET content = ?, updated_at = ?
+                    WHERE draft_id = ?
+                    """,
+                    (content, updated_at, draft_id),
+                )
+            else:
+                conn.execute(
+                    """
+                    UPDATE document_drafts
+                    SET content = ?, title = ?, updated_at = ?
+                    WHERE draft_id = ?
+                    """,
+                    (content, title, updated_at, draft_id),
+                )
             row = conn.execute(
                 "SELECT * FROM document_drafts WHERE draft_id = ?",
                 (draft_id,),
@@ -855,6 +939,121 @@ class SQLiteStorage:
                 (limit,),
             ).fetchall()
 
+    def update_evidence_hashes(
+        self,
+        *,
+        evidence_pack_id: str,
+        hash_sha256: str,
+        html_sha256: str,
+        screenshot_sha256: str,
+        chain_sha256: str,
+    ) -> EvidencePackRecord | None:
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE evidence_packs
+                SET hash_sha256 = ?, html_sha256 = ?, screenshot_sha256 = ?, chain_sha256 = ?
+                WHERE evidence_pack_id = ?
+                """,
+                (hash_sha256, html_sha256, screenshot_sha256, chain_sha256, evidence_pack_id),
+            )
+            row = conn.execute(
+                "SELECT * FROM evidence_packs WHERE evidence_pack_id = ?",
+                (evidence_pack_id,),
+            ).fetchone()
+        return self._row_to_evidence(row) if row else None
+
+    def create_monitor_run(self, *, task_id: str) -> str:
+        started_at = _now_iso()
+        run_id = f"run-{self._next_monitor_run_serial():06d}"
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO monitor_runs (run_id, task_id, started_at, status, detail)
+                VALUES (?, ?, ?, ?, ?)
+                """,
+                (run_id, task_id, started_at, "running", ""),
+            )
+        return run_id
+
+    def finish_monitor_run(
+        self,
+        *,
+        run_id: str,
+        status: str,
+        risk_score: int,
+        detail: str,
+        case_id: str | None = None,
+        evidence_pack_id: str | None = None,
+    ) -> None:
+        finished_at = _now_iso()
+        with self.connect() as conn:
+            conn.execute(
+                """
+                UPDATE monitor_runs
+                SET finished_at = ?, status = ?, risk_score = ?, case_id = ?, evidence_pack_id = ?, detail = ?
+                WHERE run_id = ?
+                """,
+                (finished_at, status, risk_score, case_id, evidence_pack_id, detail, run_id),
+            )
+
+    def list_monitor_runs(self, *, task_id: str, limit: int = 20) -> list[sqlite3.Row]:
+        with self.connect() as conn:
+            return conn.execute(
+                """
+                SELECT * FROM monitor_runs
+                WHERE task_id = ?
+                ORDER BY started_at DESC, run_id DESC
+                LIMIT ?
+                """,
+                (task_id, limit),
+            ).fetchall()
+
+    def create_audit_log(
+        self,
+        *,
+        actor_token: str,
+        actor_role: str,
+        action: str,
+        resource_type: str,
+        resource_id: str,
+        request_id: str,
+        payload_json: str,
+    ) -> str:
+        audit_id = f"audit-{self._next_audit_serial():06d}"
+        with self.connect() as conn:
+            conn.execute(
+                """
+                INSERT INTO audit_logs (
+                    audit_id, actor_token, actor_role, action, resource_type,
+                    resource_id, request_id, payload_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    audit_id,
+                    actor_token,
+                    actor_role,
+                    action,
+                    resource_type,
+                    resource_id,
+                    request_id,
+                    payload_json,
+                    _now_iso(),
+                ),
+            )
+        return audit_id
+
+    def list_audit_logs(self, *, limit: int = 100) -> list[sqlite3.Row]:
+        with self.connect() as conn:
+            return conn.execute(
+                """
+                SELECT * FROM audit_logs
+                ORDER BY created_at DESC, audit_id DESC
+                LIMIT ?
+                """,
+                (limit,),
+            ).fetchall()
+
     def _next_case_serial(self) -> int:
         with self.connect() as conn:
             row = conn.execute(
@@ -894,5 +1093,19 @@ class SQLiteStorage:
         with self.connect() as conn:
             row = conn.execute(
                 "SELECT COALESCE(MAX(CAST(SUBSTR(log_id, 12) AS INTEGER)), 0) FROM notification_logs"
+            ).fetchone()
+        return int(row[0]) + 1
+
+    def _next_monitor_run_serial(self) -> int:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(CAST(SUBSTR(run_id, 5) AS INTEGER)), 0) FROM monitor_runs"
+            ).fetchone()
+        return int(row[0]) + 1
+
+    def _next_audit_serial(self) -> int:
+        with self.connect() as conn:
+            row = conn.execute(
+                "SELECT COALESCE(MAX(CAST(SUBSTR(audit_id, 7) AS INTEGER)), 0) FROM audit_logs"
             ).fetchone()
         return int(row[0]) + 1

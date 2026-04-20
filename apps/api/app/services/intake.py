@@ -32,6 +32,8 @@ class IntakeService:
         description = self._derive_description(payload.page_text, payload.html, payload.request_id)
         monitoring_scope = self._derive_monitoring_scope(str(payload.url), payload.source)
         tags = self._derive_tags(payload.title, payload.source)
+        risk_score = self._estimate_risk(payload.title, payload.page_text, payload.html)
+        risk_level = self._risk_level(risk_score)
 
         case = self.case_service.create_case(
             CaseCreateRequest(
@@ -39,8 +41,8 @@ class IntakeService:
                 brand_name=brand_name,
                 suspect_name=suspect_name,
                 platform=platform,
-                risk_score=88,
-                risk_level="high",
+                risk_score=risk_score,
+                risk_level=risk_level,
                 description=description,
                 tags=tags,
                 monitoring_scope=monitoring_scope,
@@ -104,6 +106,25 @@ class IntakeService:
         if title:
             tags.append(title[:20])
         return tags
+
+    @staticmethod
+    def _estimate_risk(title: str, page_text: str, html: str) -> int:
+        text = " ".join([title, page_text, html]).lower()
+        score = 45
+        keywords = ["侵权", "仿", "高仿", "山寨", "官方", "旗舰", "正品", "adidas", "nike", "商标", "专利"]
+        hits = sum(1 for keyword in keywords if keyword in text)
+        score += min(40, hits * 8)
+        if "example.com" in text:
+            score -= 20
+        return max(0, min(100, score))
+
+    @staticmethod
+    def _risk_level(score: int) -> str:
+        if score >= 85:
+            return "high"
+        if score >= 60:
+            return "medium"
+        return "low"
 
     def _maybe_generate_draft(
         self,

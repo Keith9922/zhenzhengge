@@ -21,6 +21,8 @@ def main() -> None:
             llm_provider="stub",
             llm_api_key="",
             enable_demo_seed=False,
+            require_auth=False,
+            monitor_scheduler_enabled=False,
         )
         with TestClient(create_app(settings)) as client:
             health = client.get("/health")
@@ -78,7 +80,7 @@ def main() -> None:
 
             exported = client.post(f"/api/v1/document-drafts/{draft_id}/export")
             assert exported.status_code == 200, exported.text
-            assert exported.json()["file_path"].endswith(f"{draft_id}.md")
+            assert exported.json()["file_path"].endswith(f"{draft_id}.docx")
 
             monitor = client.post(
                 "/api/v1/monitor-tasks",

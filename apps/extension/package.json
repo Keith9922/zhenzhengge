@@ -5,7 +5,8 @@
   "private": true,
   "manifest": {
     "name": "证证鸽取证",
-    "permissions": ["tabs", "activeTab", "scripting"]
+    "permissions": ["tabs", "activeTab", "scripting"],
+    "host_permissions": ["http://127.0.0.1/*", "http://localhost/*"]
   },
   "scripts": {
     "dev": "plasmo dev",

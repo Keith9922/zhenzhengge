@@ -1,5 +1,5 @@
 import { getApiV1BaseUrl } from "@/lib/env";
-import { buildDemoDataNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
+import { buildApiErrorNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
 
 export type CaseStatus = string;
 
@@ -97,6 +97,32 @@ type ApiEvidencePackRecord = {
   evidenceItems?: unknown;
 };
 
+type JsonFetchResult =
+  | {
+      ok: true;
+      status: number;
+      data: unknown;
+    }
+  | {
+      ok: false;
+      status?: number;
+      detail: string;
+    };
+
+type CaseDetailFetchResult =
+  | {
+      kind: "ok";
+      item: CaseDetail;
+    }
+  | {
+      kind: "missing";
+      detail: string;
+    }
+  | {
+      kind: "error";
+      detail: string;
+    };
+
 const statusLabelMap: Record<string, string> = {
   open: "待处理",
   monitoring: "监测中",
@@ -120,110 +146,6 @@ const platformLabelMap: Record<string, string> = {
   "browser-extension": "网页取证",
   "brand-site": "品牌官网",
 };
-
-const mockCases: CaseDetail[] = [
-  {
-    id: "case-adidas-aaodasis",
-    title: "阿波达斯商品页",
-    status: "高风险",
-    summary: "近似命名、品牌视觉混淆，已完成基础取证。",
-    source: "淘宝商品页",
-    updatedAt: "2026-04-11 10:18",
-    target: "阿迪达斯",
-    riskScore: 92,
-    evidenceCount: 8,
-    evidencePacks: [
-      {
-        id: "pack-adidas-001",
-        title: "商品页抓取包",
-        source: "淘宝商品页",
-        capturedAt: "2026-04-11 10:12",
-        artifactCount: 4,
-        summary: "保存了页面截图、标题、URL 和抓取日志。",
-        items: ["URL", "页面标题", "全页截图", "抓取时间"],
-      },
-      {
-        id: "pack-adidas-002",
-        title: "图片比对包",
-        source: "图片资源",
-        capturedAt: "2026-04-11 10:18",
-        artifactCount: 4,
-        summary: "保存了图片哈希、对比结果和固证日志。",
-        items: ["图片哈希", "对比结果", "HTML", "操作日志"],
-      },
-    ],
-    notes: [
-      "商品标题与目标品牌高度近似。",
-      "页面视觉元素存在品牌混淆风险。",
-      "已生成证据包，等待法务复核。",
-    ],
-    evidenceItems: ["URL", "页面标题", "全页截图", "HTML", "抓取时间", "哈希值", "图片链接", "操作日志"],
-    nextActions: ["生成律师函初稿", "整理案件说明", "导出证据目录"],
-  },
-  {
-    id: "case-brand-homepage-copy",
-    title: "品牌官网疑似仿冒页",
-    status: "待复核",
-    summary: "页面出现新内容，等待进一步固证与人工审核。",
-    source: "品牌官网",
-    updatedAt: "2026-04-11 09:42",
-    target: "官方品牌站",
-    riskScore: 78,
-    evidenceCount: 5,
-    evidencePacks: [
-      {
-        id: "pack-homepage-001",
-        title: "首页巡检包",
-        source: "品牌官网",
-        capturedAt: "2026-04-11 09:42",
-        artifactCount: 3,
-        summary: "保留了页面快照、DOM 变化和时间戳。",
-        items: ["URL", "页面截图", "抓取时间"],
-      },
-    ],
-    notes: ["页面近期更新过内容。", "需要补充更多历史快照。", "建议先完成人工复核。"],
-    evidenceItems: ["URL", "页面标题", "全页截图", "页面文本", "抓取时间"],
-    nextActions: ["继续巡检", "补抓历史页面", "发起复核"],
-  },
-  {
-    id: "case-jd-mixed-content",
-    title: "京东店铺图文混用页",
-    status: "处理中",
-    summary: "已生成证据包，待推送给负责人。",
-    source: "京东店铺",
-    updatedAt: "2026-04-10 20:05",
-    target: "品牌授权页面",
-    riskScore: 67,
-    evidenceCount: 6,
-    evidencePacks: [
-      {
-        id: "pack-jd-001",
-        title: "图文混用抓取包",
-        source: "京东店铺",
-        capturedAt: "2026-04-10 20:05",
-        artifactCount: 3,
-        summary: "包含页面截图、文本提取和图片哈希。",
-        items: ["截图", "文本", "图片哈希"],
-      },
-      {
-        id: "pack-jd-002",
-        title: "进展整理包",
-        source: "案件记录",
-        capturedAt: "2026-04-10 20:12",
-        artifactCount: 3,
-        summary: "包含当前处理状态、补充说明和后续动作。",
-        items: ["处理状态", "补充说明", "后续动作"],
-      },
-    ],
-    notes: ["图文混用，需拆分识别文字与图片。", "风险中等偏高。", "后续可进入投诉材料准备阶段。"],
-    evidenceItems: ["URL", "页面标题", "截图", "文本", "图片哈希", "抓取时间"],
-    nextActions: ["整理案件说明", "生成平台投诉函", "等待审核确认"],
-  },
-];
-
-function normalize(value: string) {
-  return value.trim().toLowerCase();
-}
 
 function toStringValue(value: unknown, fallback = "") {
   if (typeof value === "string") {
@@ -293,7 +215,7 @@ function buildCasesEndpoint(path = "cases") {
   return `${baseUrl}${normalizedPath}`;
 }
 
-function extractCaseList(payload: unknown): CaseSummary[] {
+function extractCaseList(payload: unknown): ApiCaseRecord[] {
   const candidates =
     Array.isArray(payload)
       ? payload
@@ -305,7 +227,7 @@ function extractCaseList(payload: unknown): CaseSummary[] {
           ].find(Array.isArray)
         : undefined;
 
-  return Array.isArray(candidates) ? (candidates as CaseSummary[]) : [];
+  return Array.isArray(candidates) ? (candidates as ApiCaseRecord[]) : [];
 }
 
 function extractEvidencePackList(payload: unknown): EvidencePackSummary[] {
@@ -431,7 +353,7 @@ function normalizeApiCaseDetail(record: ApiCaseRecord, fallbackId = ""): CaseDet
       : [
           `平台：${summary.source}`,
           `风险等级：${riskLevel}`,
-          `建议结合现有证据和业务判断继续推进。`,
+          "建议结合现有证据和业务判断继续推进。",
         ];
   const evidenceItems =
     Array.isArray(record.evidence_items) && record.evidence_items.length
@@ -484,43 +406,9 @@ function mergeCaseDetailWithEvidencePacks(
   };
 }
 
-export async function getCases(): Promise<ListFetchResult<CaseSummary>> {
-  const endpoint = buildCasesEndpoint();
-  if (!endpoint) {
-    return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
-  }
-
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2500);
-    const response = await fetch(endpoint, {
-      cache: "no-store",
-      signal: controller.signal,
-    }).finally(() => clearTimeout(timeout));
-
-    if (!response.ok) {
-      return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
-    }
-
-    const payload: unknown = await response.json();
-    const items = extractCaseList(payload).map((item, index) => {
-      const record = item as ApiCaseRecord;
-      return normalizeApiCaseSummary(record, record.case_id || record.caseId || record.id || `api-case-${index + 1}`);
-    });
-
-    if (!items.length) {
-      return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
-    }
-
-    return { items, source: "api" };
-  } catch {
-    return { items: mockCases, source: "mock", note: buildDemoDataNote("案件列表") };
-  }
-}
-
-async function fetchJson(endpoint: string) {
+async function fetchJson(endpoint: string): Promise<JsonFetchResult> {
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 2500);
+  const timeout = setTimeout(() => controller.abort(), 3000);
   try {
     const response = await fetch(endpoint, {
       cache: "no-store",
@@ -528,27 +416,53 @@ async function fetchJson(endpoint: string) {
     });
 
     if (!response.ok) {
-      return undefined;
+      return {
+        ok: false,
+        status: response.status,
+        detail: `HTTP ${response.status}`,
+      };
     }
 
-    return await response.json();
-  } catch {
-    return undefined;
+    const data = (await response.json()) as unknown;
+    return {
+      ok: true,
+      status: response.status,
+      data,
+    };
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "网络请求失败";
+    return {
+      ok: false,
+      detail,
+    };
   } finally {
     clearTimeout(timeout);
   }
 }
 
-async function fetchApiCaseDetail(caseId: string) {
+async function fetchApiCaseDetail(caseId: string): Promise<CaseDetailFetchResult> {
   const detailEndpoint = buildCasesEndpoint(`cases/${encodeURIComponent(caseId)}`);
   if (!detailEndpoint) {
-    return undefined;
+    return {
+      kind: "error",
+      detail: "未配置 API 地址",
+    };
   }
 
-  const payload = await fetchJson(detailEndpoint);
-  const detail = extractCaseDetail(payload);
+  const detailResponse = await fetchJson(detailEndpoint);
+  if (!detailResponse.ok) {
+    return {
+      kind: "error",
+      detail: detailResponse.detail,
+    };
+  }
+
+  const detail = extractCaseDetail(detailResponse.data);
   if (!detail) {
-    return undefined;
+    return {
+      kind: "missing",
+      detail: "未找到对应案件",
+    };
   }
 
   const evidencePackEndpoints = [
@@ -558,51 +472,81 @@ async function fetchApiCaseDetail(caseId: string) {
 
   let evidencePacks: EvidencePackSummary[] = [];
   for (const endpoint of evidencePackEndpoints) {
-    const packPayload = await fetchJson(endpoint);
-    evidencePacks = extractEvidencePackList(packPayload);
+    const packResponse = await fetchJson(endpoint);
+    if (!packResponse.ok) {
+      continue;
+    }
+
+    evidencePacks = extractEvidencePackList(packResponse.data);
     if (evidencePacks.length) {
       break;
     }
   }
 
-  const payloadRecord = payload as ApiCaseRecord;
+  const payloadRecord = detailResponse.data as ApiCaseRecord;
   const inlinePacks = extractEvidencePackList(
     (payloadRecord.evidence_packs as unknown) || (payloadRecord.evidencePacks as unknown),
   );
 
-  return mergeCaseDetailWithEvidencePacks(detail, evidencePacks.length ? evidencePacks : inlinePacks);
+  return {
+    kind: "ok",
+    item: mergeCaseDetailWithEvidencePacks(detail, evidencePacks.length ? evidencePacks : inlinePacks),
+  };
+}
+
+export async function getCases(): Promise<ListFetchResult<CaseSummary>> {
+  const endpoint = buildCasesEndpoint();
+  if (!endpoint) {
+    return {
+      items: [],
+      source: "error",
+      note: buildApiErrorNote("案件列表", "未配置 API 地址"),
+    };
+  }
+
+  const result = await fetchJson(endpoint);
+  if (!result.ok) {
+    return {
+      items: [],
+      source: "error",
+      note: buildApiErrorNote("案件列表", result.detail),
+    };
+  }
+
+  const records = extractCaseList(result.data);
+  if (!records.length) {
+    return {
+      items: [],
+      source: "api",
+    };
+  }
+
+  return {
+    items: records.map((record, index) =>
+      normalizeApiCaseSummary(record, record.case_id || record.caseId || record.id || `api-case-${index + 1}`),
+    ),
+    source: "api",
+  };
 }
 
 export async function getCaseById(caseId: string): Promise<DetailFetchResult<CaseDetail>> {
-  const apiDetail = await fetchApiCaseDetail(caseId);
-  if (apiDetail) {
-    return { item: apiDetail, source: "api" };
+  const detailResult = await fetchApiCaseDetail(caseId);
+  if (detailResult.kind === "ok") {
+    return {
+      item: detailResult.item,
+      source: "api",
+    };
   }
 
-  const endpoint = buildCasesEndpoint(`cases/${encodeURIComponent(caseId)}`);
-  if (endpoint) {
-    try {
-      const payload = await fetchJson(endpoint);
-      const item = extractCaseDetail(payload);
-      if (item) {
-        return { item, source: "api" };
-      }
-    } catch {
-      // fall back to mock
-    }
+  if (detailResult.kind === "missing") {
+    return {
+      source: "error",
+      note: buildApiErrorNote("案件详情", detailResult.detail),
+    };
   }
 
-  const item = mockCases.find((record) => normalize(record.id) === normalize(caseId) || normalize(record.title) === normalize(caseId));
-  return item
-    ? { item, source: "mock", note: buildDemoDataNote("案件详情") }
-    : { source: "error", note: "未找到对应案件，当前无法展示真实数据。" };
+  return {
+    source: "error",
+    note: buildApiErrorNote("案件详情", detailResult.detail),
+  };
 }
-
-export const mockCaseSummaries: CaseSummary[] = mockCases.map((item) => ({
-  id: item.id,
-  title: item.title,
-  status: item.status,
-  summary: item.summary,
-  source: item.source,
-  updatedAt: item.updatedAt,
-}));

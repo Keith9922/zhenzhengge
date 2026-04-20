@@ -32,6 +32,9 @@ class EvidencePackRecord(BaseModel):
     capture_channel: str
     note: str | None = None
     hash_sha256: str
+    html_sha256: str = ""
+    screenshot_sha256: str = ""
+    chain_sha256: str = ""
     snapshot_path: str
     html_path: str
     created_at: datetime

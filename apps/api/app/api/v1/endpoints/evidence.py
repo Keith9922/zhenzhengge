@@ -2,7 +2,13 @@ from fastapi import APIRouter, Depends
 from fastapi import HTTPException
 from fastapi.responses import FileResponse, PlainTextResponse
 
-from app.api.deps import get_evidence_service, get_hermes_orchestrator, get_playwright_worker
+from app.api.deps import (
+    get_audit_service,
+    get_evidence_service,
+    get_hermes_orchestrator,
+    get_playwright_worker,
+)
+from app.api.security import CurrentUser, require_roles
 from app.schemas.evidence import (
     EvidencePackCreateRequest,
     EvidencePackPreviewResponse,
@@ -12,6 +18,7 @@ from app.schemas.evidence import (
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
 from app.services.playwright import PlaywrightWorker
+from app.services.audit import AuditService
 
 router = APIRouter()
 
@@ -20,6 +27,7 @@ router = APIRouter()
 def list_evidence_packs(
     case_id: str | None = None,
     evidence_service: EvidenceService = Depends(get_evidence_service),
+    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> list[EvidencePackRecord]:
     items = evidence_service.list_packs(case_id=case_id)
     return items
@@ -29,6 +37,7 @@ def list_evidence_packs(
 def get_evidence_pack(
     evidence_pack_id: str,
     evidence_service: EvidenceService = Depends(get_evidence_service),
+    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> EvidencePackRecord:
     item = evidence_service.get_pack(evidence_pack_id)
     if item is None:
@@ -40,6 +49,7 @@ def get_evidence_pack(
 def get_evidence_pack_preview(
     evidence_pack_id: str,
     evidence_service: EvidenceService = Depends(get_evidence_service),
+    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> EvidencePackPreviewResponse:
     item = evidence_service.get_pack(evidence_pack_id)
     if item is None:
@@ -74,6 +84,7 @@ def get_evidence_pack_html_artifact(
     evidence_pack_id: str,
     download: bool = False,
     evidence_service: EvidenceService = Depends(get_evidence_service),
+    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ):
     item = evidence_service.get_pack(evidence_pack_id)
     if item is None:
@@ -91,6 +102,7 @@ def get_evidence_pack_screenshot_artifact(
     evidence_pack_id: str,
     download: bool = False,
     evidence_service: EvidenceService = Depends(get_evidence_service),
+    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ):
     item = evidence_service.get_pack(evidence_pack_id)
     if item is None:
@@ -108,13 +120,23 @@ def create_evidence_pack(
     evidence_service: EvidenceService = Depends(get_evidence_service),
     hermes: HermesOrchestrator = Depends(get_hermes_orchestrator),
     playwright: PlaywrightWorker = Depends(get_playwright_worker),
+    audit: AuditService = Depends(get_audit_service),
+    user: CurrentUser = Depends(require_roles("operator", "admin")),
 ) -> EvidencePackResponse:
     _ = hermes.submit_capture_workflow(payload.case_id)
     capture = playwright.capture(url=str(payload.source_url), title=payload.source_title)
     record = evidence_service.create_pack(payload)
-    evidence_service.persist_capture_artifacts(
+    record = evidence_service.persist_capture_artifacts(
         record,
         raw_html=capture.html_content,
         screenshot_bytes=capture.screenshot_bytes,
+    )
+    audit.log(
+        actor_token=user.token,
+        actor_role=user.role,
+        action="evidence_pack.create",
+        resource_type="evidence_pack",
+        resource_id=record.evidence_pack_id,
+        payload={"case_id": payload.case_id, "source_url": str(payload.source_url)},
     )
     return EvidencePackResponse(item=record)

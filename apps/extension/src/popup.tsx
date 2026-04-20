@@ -1,6 +1,12 @@
 import { useMemo, useState } from "react"
 import type { CSSProperties } from "react"
 
+declare const process:
+  | {
+      env?: Record<string, string | undefined>
+    }
+  | undefined
+
 type EvidenceDraft = {
   title: string
   url: string
@@ -24,12 +30,11 @@ type SubmitResult = {
   workbenchUrl: string
 }
 
-// 写死的地址，上线后替换
-const API_BASE_URL = "http://127.0.0.1:8000"
-const WEB_BASE_URL = "http://localhost:3000"
-// const API_BASE_URL = "https://api.example.com"  // TODO: 上线后替换
-// const WEB_BASE_URL = "https://www.example.com"  // TODO: 上线后替换
-const ALLOW_SIMULATED_SUBMISSION = false // 正式模式，禁用模拟提交
+const API_BASE_URL = process.env.PLASMO_PUBLIC_API_BASE_URL || "http://127.0.0.1:8000"
+const WEB_BASE_URL = process.env.PLASMO_PUBLIC_WEB_BASE_URL || "http://localhost:3000"
+const API_TOKEN = process.env.PLASMO_PUBLIC_API_TOKEN || ""
+const ALLOW_SIMULATED_SUBMISSION =
+  (process.env.PLASMO_PUBLIC_ALLOW_SIMULATED_SUBMISSION || "false").toLowerCase() === "true"
 const INTAKE_PATH = "/api/v1/evidence/intake"
 
 async function getActiveTabDraft(): Promise<EvidenceDraft> {
@@ -364,11 +369,16 @@ async function submitEvidence(draft: EvidenceDraft): Promise<SubmitResult> {
   }
 
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json"
+    }
+    if (API_TOKEN.trim()) {
+      headers.Authorization = `Bearer ${API_TOKEN.trim()}`
+      headers["x-zhenzhengge-extension-token"] = API_TOKEN.trim()
+    }
     const response = await fetch(`${API_BASE_URL.replace(/\/$/, "")}${INTAKE_PATH}`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
+      headers,
       body: JSON.stringify(payload)
     })
 

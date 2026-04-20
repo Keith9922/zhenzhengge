@@ -34,11 +34,12 @@ dist/
 build/
 *.egg
 
-# Environment (NEVER commit real .env)
+# Environment (NEVER commit real .env; keep .env.example committed as template)
 .env
 .env.local
 .env.*.local
-.env.example
+!.env.example
+!**/.env.example
 
 # Database & Data
 *.db
@@ -87,3 +88,26 @@ out/
 Thumbs.db
 ehthumbs.db
 Desktop.ini
+
+# Large binary / demo / legacy assets (keep out of repo)
+*.mp3
+*.wav
+*.flac
+*.m4a
+*.zip
+song.mp3
+minimax_music/
+知识产权侵权文书模板/
+apps/api/captures/
+apps/api/data/
+
+# Coverage & test artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.lcov
+
+# Editor / Claude local settings
+.claude/
+

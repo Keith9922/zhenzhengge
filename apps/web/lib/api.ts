@@ -1,4 +1,4 @@
-import { getApiV1BaseUrl } from "@/lib/env";
+import { getApiAuthToken, getApiV1BaseUrl } from "@/lib/env";
 
 export function buildApiUrl(path: string) {
   const baseUrl = getApiV1BaseUrl();
@@ -19,10 +19,14 @@ export async function fetchJsonOrUndefined<T>(path: string): Promise<T | undefin
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 2500);
 
+  const token = getApiAuthToken().trim();
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
+
   try {
     const response = await fetch(endpoint, {
       cache: "no-store",
       signal: controller.signal,
+      headers,
     });
 
     if (!response.ok) {
@@ -43,11 +47,17 @@ export async function postJson<T>(path: string, payload: unknown): Promise<T> {
     throw new Error("当前未配置 API 地址");
   }
 
+  const token = getApiAuthToken().trim();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
   const response = await fetch(endpoint, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers,
     body: JSON.stringify(payload),
   });
 

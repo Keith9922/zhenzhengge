@@ -62,6 +62,7 @@ class DocumentDraftService:
             evidence_context=[self._build_evidence_context(item) for item in evidence_items],
             variables_override=payload.variables_override,
         )
+        evidence_lines = self._format_evidence_reference_lines([self._build_evidence_context(item) for item in evidence_items])
         content = llm_result.content or self._render_content(
             case_title=case.title,
             brand_name=case.brand_name,
@@ -71,6 +72,7 @@ class DocumentDraftService:
             description=case.description,
             template_name=template.name,
             extra_variables=payload.variables_override,
+            evidence_lines=evidence_lines,
         )
         return self.storage.create_document_draft(
             case_id=payload.case_id,
@@ -84,6 +86,22 @@ class DocumentDraftService:
             draft_id=draft_id,
             status=DraftStatus.submitted,
             review_comment=comment,
+        )
+
+    def update_draft(
+        self,
+        *,
+        draft_id: str,
+        content: str,
+        title: str | None = None,
+    ) -> DocumentDraftRecord | None:
+        cleaned = content.strip()
+        if not cleaned:
+            raise ValueError("草稿内容不能为空")
+        return self.storage.update_document_draft_content(
+            draft_id=draft_id,
+            content=cleaned,
+            title=title.strip() if title else None,
         )
 
     def approve(self, draft_id: str, comment: str) -> DocumentDraftRecord | None:
@@ -168,6 +186,7 @@ class DocumentDraftService:
         description: str,
         template_name: str,
         extra_variables: dict[str, str],
+        evidence_lines: str,
     ) -> str:
         extra_text = "\n".join(f"- {key}: {value}" for key, value in extra_variables.items()) or "- 无"
         return (
@@ -178,6 +197,7 @@ class DocumentDraftService:
             f"## 来源平台\n{platform}\n\n"
             f"## 风险等级\n{risk_level}\n\n"
             f"## 案件说明\n{description}\n\n"
+            f"## 证据依据\n{evidence_lines}\n\n"
             f"## 补充变量\n{extra_text}\n\n"
             "## 使用提示\n"
             "本草稿用于内部整理和法务审核前预览，正式对外动作仍需人工确认。\n"
@@ -194,6 +214,21 @@ class DocumentDraftService:
             "hash_sha256": item.hash_sha256,
             "html_excerpt": self._extract_html_excerpt(self.evidence_service.read_html(item)),
         }
+
+    @staticmethod
+    def _format_evidence_reference_lines(items: list[dict[str, str]]) -> str:
+        if not items:
+            return "- 无"
+        lines: list[str] = []
+        for index, item in enumerate(items, start=1):
+            lines.append(
+                (
+                    f"- {index}. EvidenceID={item.get('evidence_pack_id', '')} | "
+                    f"URL={item.get('source_url', '')} | HASH={item.get('hash_sha256', '')} | "
+                    f"取证时间={item.get('captured_at', '')}"
+                )
+            )
+        return "\n".join(lines)
 
     @staticmethod
     def _extract_html_excerpt(raw_html: str, limit: int = 160) -> str:

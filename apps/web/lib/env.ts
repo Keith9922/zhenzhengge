@@ -6,6 +6,10 @@ export function getApiBaseUrl() {
   return process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || "";
 }
 
+export function getApiAuthToken() {
+  return process.env.API_AUTH_TOKEN || process.env.NEXT_PUBLIC_API_AUTH_TOKEN || "";
+}
+
 export function getApiV1BaseUrl() {
   const baseUrl = getApiBaseUrl().trim().replace(/\/$/, "");
 

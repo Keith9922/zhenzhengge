@@ -27,17 +27,22 @@ class PageCaptureResult:
 
 
 class PlaywrightWorker:
-    def __init__(self, base_dir: Path | None = None) -> None:
+    def __init__(self, base_dir: Path | None = None, *, allow_http_fallback: bool = True) -> None:
         self.base_dir = base_dir or Path.cwd()
         self.capture_dir = self.base_dir / "captures"
         self.capture_dir.mkdir(parents=True, exist_ok=True)
+        self.allow_http_fallback = allow_http_fallback
 
     def health(self) -> dict[str, str]:
         if sync_playwright is None:
             return {
                 "name": "playwright_worker",
-                "status": "degraded",
-                "description": "playwright 未安装，当前只支持 http 回退抓取",
+                "status": "degraded" if self.allow_http_fallback else "error",
+                "description": (
+                    "playwright 未安装，当前使用 http 回退抓取"
+                    if self.allow_http_fallback
+                    else "playwright 未安装，且已禁用 http 回退抓取"
+                ),
             }
         return {
             "name": "playwright_worker",
@@ -50,10 +55,9 @@ class PlaywrightWorker:
         html_file = self.capture_dir / f"{capture_slug}.html"
         screenshot_file = self.capture_dir / f"{capture_slug}.png"
 
-        if self._looks_like_example_domain(url):
-            return self._capture_via_http(url=url, title=title, html_file=html_file, screenshot_file=screenshot_file)
-
         if sync_playwright is None:
+            if not self.allow_http_fallback:
+                raise RuntimeError("playwright 未安装，且已禁用 http 回退抓取")
             return self._capture_via_http(url=url, title=title, html_file=html_file, screenshot_file=screenshot_file)
 
         try:
@@ -81,6 +85,8 @@ class PlaywrightWorker:
                 detail="playwright 抓取成功",
             )
         except Exception as exc:  # pragma: no cover - browser failure path
+            if not self.allow_http_fallback:
+                raise RuntimeError(f"playwright 抓取失败：{exc}") from exc
             return self._capture_via_http(
                 url=url,
                 title=title,
@@ -98,26 +104,16 @@ class PlaywrightWorker:
         screenshot_file: Path,
         fallback_error: Exception | None = None,
     ) -> PageCaptureResult:
-        if self._looks_like_example_domain(url):
-            html_content = (
-                "<html><head><title>{title}</title></head>"
-                "<body><main><h1>{title}</h1><p>演示抓取内容，来自离线示例域名。</p></main></body></html>"
-            ).format(title=title)
-            detail = "示例域名使用离线回退内容"
-        else:
-            try:
-                response = httpx.get(url, timeout=15.0, follow_redirects=True)
-                response.raise_for_status()
-                html_content = response.text
-                detail = "HTTP 回退抓取成功"
-            except Exception as exc:  # pragma: no cover - network failure path
-                html_content = (
-                    "<html><head><title>{title}</title></head>"
-                    "<body><main><h1>{title}</h1><p>抓取失败，已使用占位内容保底。</p></main></body></html>"
-                ).format(title=title)
-                detail = f"HTTP 回退抓取失败：{exc}"
-                if fallback_error is not None:
-                    detail = f"playwright 失败：{fallback_error}; {detail}"
+        try:
+            response = httpx.get(url, timeout=15.0, follow_redirects=True)
+            response.raise_for_status()
+            html_content = response.text
+            detail = "HTTP 回退抓取成功"
+        except Exception as exc:  # pragma: no cover - network failure path
+            detail = f"HTTP 回退抓取失败：{exc}"
+            if fallback_error is not None:
+                detail = f"playwright 失败：{fallback_error}; {detail}"
+            html_content = ""
 
         page_text = self._extract_text(html_content)
         html_file.write_text(html_content, encoding="utf-8")
@@ -146,7 +142,3 @@ class PlaywrightWorker:
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"\s+", " ", text)
         return text.strip()
-
-    @staticmethod
-    def _looks_like_example_domain(url: str) -> bool:
-        return "example.com" in url or "example.org" in url or "example.net" in url

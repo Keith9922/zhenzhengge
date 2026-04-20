@@ -1,14 +1,26 @@
 import Link from "next/link";
+import { DataSourceBanner } from "@/components/data-source-banner";
+import { getCases } from "@/lib/cases";
+import { getDrafts } from "@/lib/drafts";
+import { getEvidencePacks } from "@/lib/evidence-packs";
 
-const stats = [
-  { label: "待处理线索", value: "12" },
-  { label: "证据包", value: "24" },
-  { label: "材料草稿", value: "3" },
-];
+export const dynamic = "force-dynamic";
 
-export default function WorkspaceHomePage() {
+export default async function WorkspaceHomePage() {
+  const [casesResult, evidenceResult, draftsResult] = await Promise.all([getCases(), getEvidencePacks(), getDrafts()]);
+
+  const stats = [
+    { label: "案件数", value: String(casesResult.items.length) },
+    { label: "证据包数", value: String(evidenceResult.items.length) },
+    { label: "草稿数", value: String(draftsResult.items.length) },
+  ];
+
+  const hasError = [casesResult.source, evidenceResult.source, draftsResult.source].includes("error");
+  const errorNote = [casesResult.note, evidenceResult.note, draftsResult.note].filter(Boolean).join("；");
+
   return (
     <div className="space-y-6">
+      {hasError ? <DataSourceBanner source="error" label="工作台总览" note={errorNote || undefined} /> : null}
       <section className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
         <p className="text-sm font-semibold uppercase tracking-[0.24em] text-brand-700">总览</p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-ink">证证鸽工作台</h1>

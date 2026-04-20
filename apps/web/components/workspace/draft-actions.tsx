@@ -35,7 +35,7 @@ export function DraftActions({ draftId, status, exportPath }: DraftActionsProps)
   }
 
   return (
-    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="min-w-0 overflow-hidden rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
       <h2 className="text-lg font-semibold text-ink">审核与导出</h2>
       <p className="mt-2 text-sm leading-6 text-slate-600">当前状态：{status}。正式对外动作前，请先完成内部确认。</p>
       <label className="mt-4 block space-y-2 text-sm">
@@ -82,7 +82,7 @@ export function DraftActions({ draftId, status, exportPath }: DraftActionsProps)
           导出草稿
         </button>
       </div>
-      {message ? <p className="mt-4 text-sm text-slate-600">{message}</p> : null}
+      {message ? <p className="mt-4 break-all text-sm leading-6 text-slate-600">{message}</p> : null}
     </div>
   );
 }
