@@ -2,6 +2,7 @@ from app.schemas.cases import CaseDetail, CaseCreateRequest
 from app.schemas.drafts import DocumentDraftCreateRequest, DocumentDraftRecord
 from app.schemas.evidence import EvidencePackRecord
 from app.schemas.intake import EvidenceIntakeRequest
+from app.services.brand_profiles import BrandProfileService
 from app.services.cases import CaseService
 from app.services.drafts import DocumentDraftService
 from app.services.evidence import EvidenceService
@@ -18,12 +19,14 @@ class IntakeService:
         draft_service: DocumentDraftService,
         hermes: HermesOrchestrator,
         playwright: PlaywrightWorker,
+        brand_profile_service: BrandProfileService | None = None,
     ) -> None:
         self.case_service = case_service
         self.evidence_service = evidence_service
         self.draft_service = draft_service
         self.hermes = hermes
         self.playwright = playwright
+        self.brand_profile_service = brand_profile_service
 
     def intake(
         self,
@@ -32,13 +35,21 @@ class IntakeService:
         organization_id: str,
         owner_user_id: str,
     ) -> tuple[CaseDetail, EvidencePackRecord, DocumentDraftRecord | None]:
-        brand_name = self._derive_brand_name(payload.title)
+        full_text = " ".join([payload.title, payload.page_text, payload.html])
+        # 优先从品牌档案匹配 brand_name 和评分关键词
+        profile_brand = None
+        profile_keywords: list[str] = []
+        if self.brand_profile_service:
+            profile_brand = self.brand_profile_service.match_brand_for_text(full_text, organization_id)
+            profile_keywords = self.brand_profile_service.get_risk_keywords_for_org(organization_id)
+
+        brand_name = profile_brand or self._derive_brand_name(payload.title)
         suspect_name = self._derive_suspect_name(payload.title)
         platform = self._derive_platform(payload.source)
         description = self._derive_description(payload.page_text, payload.html, payload.request_id)
         monitoring_scope = self._derive_monitoring_scope(str(payload.url), payload.source)
         tags = self._derive_tags(payload.title, payload.source)
-        risk_score = self._estimate_risk(payload.title, payload.page_text, payload.html)
+        risk_score = self._estimate_risk(payload.title, payload.page_text, payload.html, profile_keywords)
         risk_level = self._risk_level(risk_score)
 
         case = self.case_service.create_case(
@@ -149,12 +160,13 @@ class IntakeService:
         return tags
 
     @staticmethod
-    def _estimate_risk(title: str, page_text: str, html: str) -> int:
+    def _estimate_risk(title: str, page_text: str, html: str, extra_keywords: list[str] | None = None) -> int:
         text = " ".join([title, page_text, html]).lower()
         score = 45
-        keywords = ["侵权", "仿", "高仿", "山寨", "官方", "旗舰", "正品", "adidas", "nike", "商标", "专利"]
-        hits = sum(1 for keyword in keywords if keyword in text)
-        score += min(40, hits * 8)
+        base_keywords = ["侵权", "仿", "高仿", "山寨", "官方", "旗舰", "正品", "adidas", "nike", "商标", "专利"]
+        all_keywords = base_keywords + [kw.lower() for kw in (extra_keywords or [])]
+        hits = sum(1 for keyword in all_keywords if keyword in text)
+        score += min(50, hits * 6)
         if "example.com" in text:
             score -= 20
         return max(0, min(100, score))

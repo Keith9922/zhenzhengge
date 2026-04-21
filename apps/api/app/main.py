@@ -8,6 +8,7 @@ from app.api.v1.router import api_router
 from app.api.v1.endpoints.health import router as health_router
 from app.core.config import Settings, get_settings
 from app.core.storage import SQLiteStorage
+from app.services.brand_profiles import BrandProfileService
 from app.services.cases import CaseService
 from app.services.audit import AuditService
 from app.services.drafts import DocumentDraftService
@@ -40,6 +41,7 @@ async def lifespan(app: FastAPI):
         ),
         "notifications": NotificationAdapter(app.state.storage, app.state.settings),
         "audit": AuditService(app.state.storage),
+        "brand_profiles": BrandProfileService(app.state.storage, llm_service),
         "monitoring": None,
         "intake": None,
         "drafts": None,
@@ -60,6 +62,7 @@ async def lifespan(app: FastAPI):
         playwright=app.state.services["playwright"],
         notifications=app.state.services["notifications"],
         settings=app.state.settings,
+        brand_profile_service=app.state.services["brand_profiles"],
     )
     app.state.services["intake"] = IntakeService(
         case_service=app.state.services["cases"],
@@ -67,12 +70,14 @@ async def lifespan(app: FastAPI):
         draft_service=app.state.services["drafts"],
         hermes=app.state.services["hermes"],
         playwright=app.state.services["playwright"],
+        brand_profile_service=app.state.services["brand_profiles"],
     )
     if app.state.settings.monitor_scheduler_enabled:
         app.state.services["monitoring"].start_scheduler()
     yield
     if app.state.settings.monitor_scheduler_enabled:
         app.state.services["monitoring"].stop_scheduler()
+
 
 
 def create_app(settings_obj: Settings | None = None) -> FastAPI:

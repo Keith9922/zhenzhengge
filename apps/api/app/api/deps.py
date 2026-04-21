@@ -1,6 +1,7 @@
 from fastapi import Request
 
 from app.core.config import Settings
+from app.services.brand_profiles import BrandProfileService
 from app.services.cases import CaseService
 from app.services.audit import AuditService
 from app.services.drafts import DocumentDraftService
@@ -11,6 +12,10 @@ from app.services.monitoring import MonitorTaskService
 from app.services.notifications import NotificationAdapter
 from app.services.playwright import PlaywrightWorker
 from app.services.templates import DocumentTemplateService
+
+
+def get_brand_profile_service(request: Request) -> BrandProfileService:
+    return request.app.state.services["brand_profiles"]
 
 
 def get_case_service(request: Request) -> CaseService:

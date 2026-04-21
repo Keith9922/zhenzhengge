@@ -16,6 +16,7 @@ from app.schemas.monitoring import (
     MonitorTaskRecord,
     MonitorTaskStatus,
 )
+from app.services.brand_profiles import BrandProfileService
 from app.services.cases import CaseService
 from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
@@ -47,6 +48,7 @@ class MonitorTaskService:
         playwright: PlaywrightWorker,
         notifications: NotificationAdapter,
         settings: Settings,
+        brand_profile_service: BrandProfileService | None = None,
     ) -> None:
         self.storage = storage
         self.case_service = case_service
@@ -55,6 +57,7 @@ class MonitorTaskService:
         self.playwright = playwright
         self.notifications = notifications
         self.settings = settings
+        self.brand_profile_service = brand_profile_service
         self._stop_event = threading.Event()
         self._scheduler_thread: threading.Thread | None = None
         self._run_lock = threading.Lock()
@@ -151,7 +154,10 @@ class MonitorTaskService:
             return None
 
         capture = self.playwright.capture(url=task.target_url, title=task.name)
-        risk_score = self._calculate_risk_score(task, capture.title, capture.page_text, capture.html_content)
+        profile_keywords: list[str] = []
+        if self.brand_profile_service:
+            profile_keywords = self.brand_profile_service.get_risk_keywords_for_org(task.organization_id)
+        risk_score = self._calculate_risk_score(task, capture.title, capture.page_text, capture.html_content, profile_keywords)
         if risk_score < task.risk_threshold:
             detail = (
                 f"未命中阈值，trigger={trigger}，risk_score={risk_score}，threshold={task.risk_threshold}"
@@ -342,6 +348,7 @@ class MonitorTaskService:
         captured_title: str,
         page_text: str,
         html_content: str,
+        extra_keywords: list[str] | None = None,
     ) -> int:
         text = " ".join(
             part
@@ -357,11 +364,12 @@ class MonitorTaskService:
         ).lower()
         if not text:
             return 0
-        if not task.brand_keywords:
+        all_keywords = list(task.brand_keywords) + [kw for kw in (extra_keywords or []) if kw not in task.brand_keywords]
+        if not all_keywords:
             return 75
 
         scores: list[int] = []
-        for keyword in task.brand_keywords:
+        for keyword in all_keywords:
             normalized = keyword.strip().lower()
             if not normalized:
                 continue

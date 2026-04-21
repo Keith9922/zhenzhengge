@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { getRuntimeCompliance, getRuntimeModules } from "@/lib/runtime";
+import { fetchBrandProfiles } from "@/lib/brand-profiles";
+import { BrandProfilePanel } from "@/components/workspace/brand-profile-panel";
 
 export const dynamic = "force-dynamic";
 
@@ -14,9 +16,14 @@ const statusStyleMap: Record<string, string> = {
 };
 
 export default async function SettingsPage() {
-  const [modulesResult, complianceResult] = await Promise.all([getRuntimeModules(), getRuntimeCompliance()]);
+  const [modulesResult, complianceResult, brandProfilesResult] = await Promise.all([
+    getRuntimeModules(),
+    getRuntimeCompliance(),
+    fetchBrandProfiles(),
+  ]);
   const { items, source, note } = modulesResult;
   const compliance = complianceResult.item;
+  const brandProfiles = brandProfilesResult.items ?? [];
   const bannerSource = source === "error" || complianceResult.source === "error" ? "error" : "api";
   const bannerNote = [note, complianceResult.note].filter(Boolean).join("；");
 
@@ -121,6 +128,8 @@ export default async function SettingsPage() {
           </article>
         )}
       </div>
+
+      <BrandProfilePanel items={brandProfiles} />
 
       <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
         <h2 className="text-lg font-semibold text-ink">真实配置入口</h2>

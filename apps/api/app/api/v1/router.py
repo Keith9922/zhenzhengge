@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1.endpoints.brand_profiles import router as brand_profiles_router
 from app.api.v1.endpoints.cases import router as cases_router
 from app.api.v1.endpoints.audit import router as audit_router
 from app.api.v1.endpoints.auth import router as auth_router
@@ -13,6 +14,7 @@ from app.api.v1.endpoints.templates import router as templates_router
 
 api_router = APIRouter()
 
+api_router.include_router(brand_profiles_router, prefix="/brand-profiles", tags=["品牌权利档案"])
 api_router.include_router(intake_router, prefix="/evidence", tags=["插件 intake"])
 api_router.include_router(auth_router, prefix="/auth", tags=["鉴权"])
 api_router.include_router(cases_router, prefix="/cases", tags=["案件"])

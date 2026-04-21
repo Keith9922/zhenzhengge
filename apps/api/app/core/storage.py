@@ -203,6 +203,19 @@ class SQLiteStorage:
                     payload_json TEXT NOT NULL,
                     created_at TEXT NOT NULL
                 );
+
+                CREATE TABLE IF NOT EXISTS brand_profiles (
+                    profile_id TEXT PRIMARY KEY,
+                    organization_id TEXT NOT NULL DEFAULT 'org-default',
+                    owner_user_id TEXT NOT NULL DEFAULT 'system',
+                    brand_name TEXT NOT NULL,
+                    trademark_classes_json TEXT NOT NULL DEFAULT '[]',
+                    trademark_numbers_json TEXT NOT NULL DEFAULT '[]',
+                    confusable_terms_json TEXT NOT NULL DEFAULT '[]',
+                    protection_keywords_json TEXT NOT NULL DEFAULT '[]',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
                 """
             )
             self._ensure_column(conn, "evidence_packs", "html_sha256", "TEXT NOT NULL DEFAULT ''")
@@ -1382,6 +1395,122 @@ class SQLiteStorage:
             "SELECT COALESCE(MAX(CAST(SUBSTR(log_id, 12) AS INTEGER)), 0) FROM notification_logs"
         ).fetchone()
         return int(row[0]) + 1
+
+    # ------------------------------------------------------------------ #
+    # brand_profiles                                                       #
+    # ------------------------------------------------------------------ #
+
+    def _row_to_brand_profile(self, row: sqlite3.Row) -> "BrandProfileRecord":
+        from app.schemas.brand_profiles import BrandProfileRecord
+        from datetime import datetime
+        return BrandProfileRecord(
+            profile_id=row["profile_id"],
+            organization_id=row["organization_id"],
+            owner_user_id=row["owner_user_id"],
+            brand_name=row["brand_name"],
+            trademark_classes=json.loads(row["trademark_classes_json"] or "[]"),
+            trademark_numbers=json.loads(row["trademark_numbers_json"] or "[]"),
+            confusable_terms=json.loads(row["confusable_terms_json"] or "[]"),
+            protection_keywords=json.loads(row["protection_keywords_json"] or "[]"),
+            created_at=datetime.fromisoformat(row["created_at"]),
+            updated_at=datetime.fromisoformat(row["updated_at"]),
+        )
+
+    def list_brand_profiles(self, *, organization_id: str | None = None) -> list["BrandProfileRecord"]:
+        with self.connect() as conn:
+            clauses: list[str] = []
+            params: list = []
+            self._append_org_clause(clauses, params, organization_id=organization_id)
+            where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
+            sql = f"SELECT * FROM brand_profiles{where} ORDER BY created_at DESC"
+            rows = conn.execute(sql, params).fetchall()
+            return [self._row_to_brand_profile(r) for r in rows]
+
+    def get_brand_profile(self, profile_id: str, *, organization_id: str | None = None) -> "BrandProfileRecord | None":
+        with self.connect() as conn:
+            sql = "SELECT * FROM brand_profiles WHERE profile_id = ?"
+            params: list = [profile_id]
+            if organization_id:
+                sql += " AND organization_id = ?"
+                params.append(organization_id)
+            row = conn.execute(sql, params).fetchone()
+            return self._row_to_brand_profile(row) if row else None
+
+    def create_brand_profile(
+        self,
+        payload: "BrandProfileCreateRequest",
+        *,
+        organization_id: str,
+        owner_user_id: str,
+    ) -> "BrandProfileRecord":
+        from app.schemas.brand_profiles import BrandProfileCreateRequest  # noqa: F401
+        now = _now_iso()
+        with self.connect() as conn:
+            serial = conn.execute(
+                "SELECT COALESCE(MAX(CAST(SUBSTR(profile_id, 9) AS INTEGER)), 0) FROM brand_profiles"
+            ).fetchone()[0]
+            profile_id = f"profile-{int(serial) + 1:04d}"
+            conn.execute(
+                """INSERT INTO brand_profiles
+                   (profile_id, organization_id, owner_user_id, brand_name,
+                    trademark_classes_json, trademark_numbers_json,
+                    confusable_terms_json, protection_keywords_json,
+                    created_at, updated_at)
+                   VALUES (?,?,?,?,?,?,?,?,?,?)""",
+                (
+                    profile_id, organization_id, owner_user_id, payload.brand_name,
+                    json.dumps(payload.trademark_classes, ensure_ascii=False),
+                    json.dumps(payload.trademark_numbers, ensure_ascii=False),
+                    json.dumps(payload.confusable_terms, ensure_ascii=False),
+                    json.dumps(payload.protection_keywords, ensure_ascii=False),
+                    now, now,
+                ),
+            )
+        return self.get_brand_profile(profile_id)  # type: ignore[return-value]
+
+    def update_brand_profile(
+        self,
+        profile_id: str,
+        payload: "BrandProfileUpdateRequest",
+        *,
+        organization_id: str | None = None,
+    ) -> "BrandProfileRecord | None":
+        existing = self.get_brand_profile(profile_id, organization_id=organization_id)
+        if not existing:
+            return None
+        now = _now_iso()
+        fields: list[str] = ["updated_at = ?"]
+        params: list = [now]
+        if payload.brand_name is not None:
+            fields.append("brand_name = ?")
+            params.append(payload.brand_name)
+        if payload.trademark_classes is not None:
+            fields.append("trademark_classes_json = ?")
+            params.append(json.dumps(payload.trademark_classes, ensure_ascii=False))
+        if payload.trademark_numbers is not None:
+            fields.append("trademark_numbers_json = ?")
+            params.append(json.dumps(payload.trademark_numbers, ensure_ascii=False))
+        if payload.confusable_terms is not None:
+            fields.append("confusable_terms_json = ?")
+            params.append(json.dumps(payload.confusable_terms, ensure_ascii=False))
+        if payload.protection_keywords is not None:
+            fields.append("protection_keywords_json = ?")
+            params.append(json.dumps(payload.protection_keywords, ensure_ascii=False))
+        params.append(profile_id)
+        with self.connect() as conn:
+            conn.execute(
+                f"UPDATE brand_profiles SET {', '.join(fields)} WHERE profile_id = ?",
+                params,
+            )
+        return self.get_brand_profile(profile_id, organization_id=organization_id)
+
+    def delete_brand_profile(self, profile_id: str, *, organization_id: str | None = None) -> bool:
+        existing = self.get_brand_profile(profile_id, organization_id=organization_id)
+        if not existing:
+            return False
+        with self.connect() as conn:
+            conn.execute("DELETE FROM brand_profiles WHERE profile_id = ?", (profile_id,))
+        return True
 
     def _next_monitor_run_serial(self, conn: sqlite3.Connection) -> int:
         row = conn.execute(
