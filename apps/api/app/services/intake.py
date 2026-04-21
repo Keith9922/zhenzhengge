@@ -25,7 +25,13 @@ class IntakeService:
         self.hermes = hermes
         self.playwright = playwright
 
-    def intake(self, payload: EvidenceIntakeRequest) -> tuple[CaseDetail, EvidencePackRecord, DocumentDraftRecord | None]:
+    def intake(
+        self,
+        payload: EvidenceIntakeRequest,
+        *,
+        organization_id: str,
+        owner_user_id: str,
+    ) -> tuple[CaseDetail, EvidencePackRecord, DocumentDraftRecord | None]:
         brand_name = self._derive_brand_name(payload.title)
         suspect_name = self._derive_suspect_name(payload.title)
         platform = self._derive_platform(payload.source)
@@ -46,29 +52,64 @@ class IntakeService:
                 description=description,
                 tags=tags,
                 monitoring_scope=monitoring_scope,
-            )
+            ),
+            organization_id=organization_id,
+            owner_user_id=owner_user_id,
         )
-        _ = self.hermes.submit_capture_workflow(case.case_id)
         capture = None
         needs_capture = not payload.html.strip() or not payload.screenshot_base64.strip()
         if needs_capture:
             capture = self.playwright.capture(url=str(payload.url), title=payload.title)
         evidence = self.evidence_service.create_pack_for_case(
             case_id=case.case_id,
+            organization_id=organization_id,
+            owner_user_id=owner_user_id,
             source_url=str(payload.url),
             source_title=payload.title,
             note=payload.request_id,
             capture_channel=payload.source or "browser_extension",
         )
-        self.evidence_service.persist_capture_artifacts(
+        persisted = self.evidence_service.persist_capture_artifacts(
             evidence,
             raw_html=payload.html or (capture.html_content if capture else ""),
             screenshot_base64=payload.screenshot_base64,
             screenshot_bytes=capture.screenshot_bytes if capture else None,
+            organization_id=organization_id,
         )
-        refreshed_case = self.case_service.attach_evidence(case.case_id)
+        evidence = persisted
+        workflow = self.hermes.submit_capture_workflow(
+            case.case_id,
+            case_context={
+                "case_id": case.case_id,
+                "title": case.title,
+                "brand_name": case.brand_name,
+                "suspect_name": case.suspect_name,
+                "platform": case.platform,
+                "risk_level": case.risk_level,
+                "description": case.description,
+            },
+            evidence_context=[{
+                "evidence_pack_id": evidence.evidence_pack_id,
+                "source_url": evidence.source_url,
+                "source_title": evidence.source_title,
+                "chain_sha256": evidence.chain_sha256,
+                "page_text": payload.page_text[:400],
+            }],
+        )
+        if workflow.status == "completed" and workflow.detail:
+            updated = self.case_service.update_description(
+                case.case_id, workflow.detail, organization_id=organization_id
+            )
+            if updated:
+                case = updated
+        refreshed_case = self.case_service.attach_evidence(case.case_id, organization_id=organization_id)
         active_case = refreshed_case or case
-        generated_draft = self._maybe_generate_draft(active_case, payload)
+        generated_draft = self._maybe_generate_draft(
+            active_case,
+            payload,
+            organization_id=organization_id,
+            owner_user_id=owner_user_id,
+        )
         return active_case, evidence, generated_draft
 
     @staticmethod
@@ -130,6 +171,9 @@ class IntakeService:
         self,
         case: CaseDetail,
         payload: EvidenceIntakeRequest,
+        *,
+        organization_id: str,
+        owner_user_id: str,
     ) -> DocumentDraftRecord | None:
         if not payload.auto_generate_draft:
             return None
@@ -144,9 +188,11 @@ class IntakeService:
                         "取证时间": payload.captured_at.isoformat(),
                         "取证渠道": payload.source or "browser-extension",
                         "取证请求编号": payload.request_id,
-                        "证据留存说明": "由于技术及国家认证要求等因素，暂时还未接入可信时间戳的 API 渠道；当前证据来自公开网页抓取、页面截图与 HTML 留存。",
+                        "证据留存说明": "当前证据包含网页抓取、截图、HTML 与哈希链；如已启用可信时间戳，将同步生成可下载回执。",
                     },
-                )
+                ),
+                organization_id=organization_id,
+                owner_user_id=owner_user_id,
             )
         except ValueError:
             return None

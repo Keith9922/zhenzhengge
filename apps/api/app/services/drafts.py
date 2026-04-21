@@ -1,4 +1,5 @@
 from pathlib import Path
+import logging
 import re
 
 from docx import Document
@@ -6,6 +7,7 @@ from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml.ns import qn
 from docx.shared import Inches, Pt
 
+from app.core.config import Settings, settings as global_settings
 from app.core.storage import SQLiteStorage
 from app.schemas.drafts import DocumentDraftCreateRequest, DocumentDraftRecord, DraftStatus
 from app.services.cases import CaseService
@@ -23,21 +25,34 @@ class DocumentDraftService:
         template_service: DocumentTemplateService,
         evidence_service: EvidenceService,
         hermes: HermesOrchestrator,
+        settings: Settings | None = None,
     ) -> None:
         self.storage = storage
         self.case_service = case_service
         self.template_service = template_service
         self.evidence_service = evidence_service
         self.hermes = hermes
+        self.settings = settings or global_settings
 
-    def list_drafts(self, case_id: str | None = None) -> list[DocumentDraftRecord]:
-        return self.storage.list_document_drafts(case_id=case_id)
+    def list_drafts(
+        self,
+        case_id: str | None = None,
+        *,
+        organization_id: str | None = None,
+    ) -> list[DocumentDraftRecord]:
+        return self.storage.list_document_drafts(case_id=case_id, organization_id=organization_id)
 
-    def get_draft(self, draft_id: str) -> DocumentDraftRecord | None:
-        return self.storage.get_document_draft(draft_id)
+    def get_draft(self, draft_id: str, *, organization_id: str | None = None) -> DocumentDraftRecord | None:
+        return self.storage.get_document_draft(draft_id, organization_id=organization_id)
 
-    def generate_draft(self, payload: DocumentDraftCreateRequest) -> DocumentDraftRecord:
-        case = self.case_service.get_case(payload.case_id)
+    def generate_draft(
+        self,
+        payload: DocumentDraftCreateRequest,
+        *,
+        organization_id: str,
+        owner_user_id: str,
+    ) -> DocumentDraftRecord:
+        case = self.case_service.get_case(payload.case_id, organization_id=organization_id)
         if case is None:
             raise ValueError("案件不存在")
 
@@ -46,23 +61,36 @@ class DocumentDraftService:
             raise ValueError("模板不存在")
 
         title = f"{case.title} - {template.name}"
-        _ = self.hermes.submit_document_workflow(template.template_key, case.case_id)
-        evidence_items = self.evidence_service.list_packs(case.case_id)
+        evidence_items = self.evidence_service.list_packs(case.case_id, organization_id=organization_id)
+        evidence_context = [self._build_evidence_context(item) for item in evidence_items]
+        case_context = {
+            "case_id": case.case_id,
+            "title": case.title,
+            "brand_name": case.brand_name,
+            "suspect_name": case.suspect_name,
+            "platform": case.platform,
+            "risk_level": case.risk_level,
+            "description": case.description,
+        }
+        precheck = self.hermes.submit_document_workflow(
+            template.template_key, case.case_id,
+            case_context=case_context,
+            evidence_context=evidence_context,
+        )
+        if precheck.status == "skipped":
+            logging.getLogger(__name__).warning("文书预检跳过：%s", precheck.detail)
         llm_result = self.hermes.generate_document_draft(
             template_name=template.name,
-            case_context={
-                "case_id": case.case_id,
-                "title": case.title,
-                "brand_name": case.brand_name,
-                "suspect_name": case.suspect_name,
-                "platform": case.platform,
-                "risk_level": case.risk_level,
-                "description": case.description,
-            },
-            evidence_context=[self._build_evidence_context(item) for item in evidence_items],
+            case_context=case_context,
+            evidence_context=evidence_context,
             variables_override=payload.variables_override,
         )
-        evidence_lines = self._format_evidence_reference_lines([self._build_evidence_context(item) for item in evidence_items])
+        if self.settings.draft_generation_strict and llm_result.status != "ok":
+            raise RuntimeError(
+                "文书生成失败：严格模式已启用，未返回可信模型结果。"
+                f" detail={llm_result.detail}"
+            )
+        evidence_lines = self._format_evidence_reference_lines(evidence_context)
         content = llm_result.content or self._render_content(
             case_title=case.title,
             brand_name=case.brand_name,
@@ -76,14 +104,19 @@ class DocumentDraftService:
         )
         return self.storage.create_document_draft(
             case_id=payload.case_id,
+            organization_id=organization_id,
+            owner_user_id=owner_user_id,
             template_key=payload.template_key,
             title=title,
             content=content,
         )
 
-    def submit_review(self, draft_id: str, comment: str) -> DocumentDraftRecord | None:
+    def submit_review(
+        self, draft_id: str, comment: str, *, organization_id: str | None = None
+    ) -> DocumentDraftRecord | None:
         return self.storage.update_document_draft_review(
             draft_id=draft_id,
+            organization_id=organization_id,
             status=DraftStatus.submitted,
             review_comment=comment,
         )
@@ -92,6 +125,7 @@ class DocumentDraftService:
         self,
         *,
         draft_id: str,
+        organization_id: str | None = None,
         content: str,
         title: str | None = None,
     ) -> DocumentDraftRecord | None:
@@ -100,26 +134,29 @@ class DocumentDraftService:
             raise ValueError("草稿内容不能为空")
         return self.storage.update_document_draft_content(
             draft_id=draft_id,
+            organization_id=organization_id,
             content=cleaned,
             title=title.strip() if title else None,
         )
 
-    def approve(self, draft_id: str, comment: str) -> DocumentDraftRecord | None:
+    def approve(self, draft_id: str, comment: str, *, organization_id: str | None = None) -> DocumentDraftRecord | None:
         return self.storage.update_document_draft_review(
             draft_id=draft_id,
+            organization_id=organization_id,
             status=DraftStatus.approved,
             review_comment=comment,
         )
 
-    def reject(self, draft_id: str, comment: str) -> DocumentDraftRecord | None:
+    def reject(self, draft_id: str, comment: str, *, organization_id: str | None = None) -> DocumentDraftRecord | None:
         return self.storage.update_document_draft_review(
             draft_id=draft_id,
+            organization_id=organization_id,
             status=DraftStatus.rejected,
             review_comment=comment,
         )
 
-    def export_draft(self, draft_id: str) -> DocumentDraftRecord | None:
-        draft = self.storage.get_document_draft(draft_id)
+    def export_draft(self, draft_id: str, *, organization_id: str | None = None) -> DocumentDraftRecord | None:
+        draft = self.storage.get_document_draft(draft_id, organization_id=organization_id)
         if draft is None:
             return None
 
@@ -173,7 +210,11 @@ class DocumentDraftService:
         doc.save(str(export_path))
 
         relative_path = export_path.relative_to(base_dir).as_posix()
-        return self.storage.set_document_draft_export_path(draft_id, relative_path)
+        return self.storage.set_document_draft_export_path(
+            draft_id,
+            relative_path,
+            organization_id=organization_id,
+        )
 
     def _render_content(
         self,

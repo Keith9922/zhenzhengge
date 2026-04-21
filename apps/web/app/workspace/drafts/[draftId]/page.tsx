@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DataSourceBanner } from "@/components/data-source-banner";
 import { DraftActions } from "@/components/workspace/draft-actions";
 import { DraftEditor } from "@/components/workspace/draft-editor";
+import { extractEvidenceReferences } from "@/lib/draft-content";
 import { getDraftById } from "@/lib/drafts";
 
 export const dynamic = "force-dynamic";
@@ -13,6 +14,7 @@ type DraftDetailPageProps = {
 export default async function DraftDetailPage({ params }: DraftDetailPageProps) {
   const { draftId } = await params;
   const { item, source, note } = await getDraftById(draftId);
+  const evidenceReferences = item ? extractEvidenceReferences(item.content) : [];
 
   if (!item) {
     return (
@@ -50,6 +52,32 @@ export default async function DraftDetailPage({ params }: DraftDetailPageProps) 
       <div className="space-y-6">
         <DraftEditor draftId={item.id} initialContent={item.content} />
 
+        {evidenceReferences.length ? (
+          <article className="min-w-0 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
+            <h2 className="text-lg font-semibold text-ink">证据引用导航</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              每条主张都可回溯到 EvidenceID，便于法务复核时快速定位证据来源。
+            </p>
+            <ul className="mt-4 space-y-3">
+              {evidenceReferences.map((ref, index) => (
+                <li key={`${ref.evidenceId}-${ref.lineNo}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="text-sm font-semibold text-ink">EvidenceID={ref.evidenceId}</span>
+                    <Link
+                      href={`/workspace/evidence-packs/${ref.evidenceId}`}
+                      className="text-sm font-medium text-brand-700 hover:text-brand-800"
+                    >
+                      查看证据包
+                    </Link>
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500">草稿行号：{ref.lineNo}</p>
+                  <p className="mt-2 break-words text-sm leading-6 text-slate-600">{ref.text}</p>
+                </li>
+              ))}
+            </ul>
+          </article>
+        ) : null}
+
         {item.reviewComment ? (
           <article className="min-w-0 overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm">
             <h2 className="text-lg font-semibold text-ink">最近备注</h2>
@@ -57,7 +85,7 @@ export default async function DraftDetailPage({ params }: DraftDetailPageProps) 
           </article>
         ) : null}
 
-        <DraftActions draftId={item.id} status={item.status} exportPath={item.exportPath} />
+        <DraftActions draftId={item.id} status={item.status} />
       </div>
 
       <div className="flex flex-wrap gap-3">

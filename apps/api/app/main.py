@@ -31,7 +31,7 @@ async def lifespan(app: FastAPI):
     llm_service = OpenAICompatibleLLMService(app.state.settings)
     app.state.services = {
         "cases": CaseService(app.state.storage),
-        "evidence": EvidenceService(app.state.storage),
+        "evidence": EvidenceService(app.state.storage, settings=app.state.settings),
         "templates": DocumentTemplateService(),
         "hermes": HermesOrchestrator(llm_service=llm_service, settings=app.state.settings),
         "playwright": PlaywrightWorker(
@@ -50,6 +50,7 @@ async def lifespan(app: FastAPI):
         template_service=app.state.services["templates"],
         evidence_service=app.state.services["evidence"],
         hermes=app.state.services["hermes"],
+        settings=app.state.settings,
     )
     app.state.services["monitoring"] = MonitorTaskService(
         app.state.storage,

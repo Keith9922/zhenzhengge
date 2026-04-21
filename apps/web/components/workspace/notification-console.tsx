@@ -10,46 +10,57 @@ type NotificationConsoleProps = {
   logs: NotificationLogItem[];
 };
 
-const statusLabelMap: Record<string, string> = {
-  sent: "发送成功",
-  "dry-run": "演示日志",
-  disabled: "渠道停用",
-  failed: "发送失败",
+const statusConfig: Record<string, { label: string; style: string }> = {
+  sent: { label: "发送成功", style: "bg-emerald-100 text-emerald-700" },
+  "dry-run": { label: "模拟发送", style: "bg-slate-100 text-slate-600" },
+  disabled: { label: "渠道停用", style: "bg-amber-100 text-amber-700" },
+  failed: { label: "发送失败", style: "bg-rose-100 text-rose-700" },
 };
+
+const EMPTY_FORM = { name: "", target: "", type: "email" };
 
 export function NotificationConsole({ items, logs }: NotificationConsoleProps) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  const [message, setMessage] = useState("");
-  const [form, setForm] = useState({
-    name: "",
-    target: "",
-    type: "email",
-  });
+  const [createPending, startCreateTransition] = useTransition();
+  const [testPending, startTestTransition] = useTransition();
+  const [message, setMessage] = useState({ text: "", ok: true });
+  const [form, setForm] = useState(EMPTY_FORM);
 
-  function runAction(path: string, payload: unknown) {
-    setMessage("");
-    startTransition(async () => {
+  function sendTest(channelId: string) {
+    setMessage({ text: "", ok: true });
+    startTestTransition(async () => {
       try {
-        const response = await postProxyJson(path.replace(/^\/+/, ""), payload);
-        if (!response.ok) {
-          throw new Error(await response.text());
-        }
-        setMessage("操作已完成");
+        const response = await postProxyJson(`notification-channels/${channelId}/test`, {
+          subject: "证证鸽测试提醒",
+          body: "这是一条用于校验接收方式可用性的测试消息。",
+        });
+        if (!response.ok) throw new Error(await response.text());
+        setMessage({ text: "测试消息已发送", ok: true });
         router.refresh();
       } catch (error) {
-        setMessage(error instanceof Error ? error.message : "操作失败");
+        setMessage({ text: error instanceof Error ? error.message : "发送失败", ok: false });
       }
     });
   }
 
   function handleCreate(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    runAction("/notification-channels", {
-      channel_type: form.type,
-      name: form.name,
-      target: form.target,
-      enabled: true,
+    setMessage({ text: "", ok: true });
+    startCreateTransition(async () => {
+      try {
+        const response = await postProxyJson("notification-channels", {
+          channel_type: form.type,
+          name: form.name,
+          target: form.target,
+          enabled: true,
+        });
+        if (!response.ok) throw new Error(await response.text());
+        setMessage({ text: "接收方式已创建", ok: true });
+        setForm(EMPTY_FORM);
+        router.refresh();
+      } catch (error) {
+        setMessage({ text: error instanceof Error ? error.message : "创建失败", ok: false });
+      }
     });
   }
 
@@ -78,15 +89,17 @@ export function NotificationConsole({ items, logs }: NotificationConsoleProps) {
             required
             value={form.target}
             onChange={(event) => setForm((current) => ({ ...current, target: event.target.value }))}
-            placeholder="邮箱地址或 webhook"
+            placeholder={form.type === "email" ? "邮箱地址" : "Webhook 地址"}
             className="rounded-2xl border border-slate-300 px-4 py-3 text-sm outline-none transition focus:border-brand-400"
           />
         </div>
         <div className="mt-5 flex flex-wrap items-center gap-3">
-          <button type="submit" disabled={pending} className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-            {pending ? "处理中…" : "保存接收方式"}
+          <button type="submit" disabled={createPending} className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+            {createPending ? "保存中…" : "保存接收方式"}
           </button>
-          {message ? <p className="text-sm text-slate-600">{message}</p> : null}
+          {message.text ? (
+            <p className={`text-sm ${message.ok ? "text-emerald-600" : "text-rose-600"}`}>{message.text}</p>
+          ) : null}
         </div>
       </form>
 
@@ -99,7 +112,7 @@ export function NotificationConsole({ items, logs }: NotificationConsoleProps) {
                   <h3 className="text-lg font-semibold text-ink">{item.name}</h3>
                   <p className="mt-1 text-sm leading-6 text-slate-600">{item.typeLabel} · {item.target}</p>
                 </div>
-                <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                <span className={`rounded-full px-3 py-1 text-xs font-medium ${item.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
                   {item.enabled ? "已启用" : "未启用"}
                 </span>
               </div>
@@ -107,13 +120,8 @@ export function NotificationConsole({ items, logs }: NotificationConsoleProps) {
                 <span className="rounded-2xl bg-slate-50 px-4 py-3 text-sm text-slate-700">最近更新：{item.updatedAt}</span>
                 <button
                   type="button"
-                  disabled={pending}
-                  onClick={() =>
-                    runAction(`/notification-channels/${item.id}/test`, {
-                      subject: "证证鸽测试提醒",
-                      body: "这是一条用于校验接收方式可用性的测试消息。",
-                    })
-                  }
+                  disabled={testPending}
+                  onClick={() => sendTest(item.id)}
                   className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 disabled:opacity-60"
                 >
                   发送测试
@@ -129,11 +137,9 @@ export function NotificationConsole({ items, logs }: NotificationConsoleProps) {
       </div>
 
       <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-ink">通知日志</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">展示最近一次测试发送或监控任务命中后的提醒记录，用于联调和验收。</p>
-          </div>
+        <div>
+          <h2 className="text-lg font-semibold text-ink">通知日志</h2>
+          <p className="mt-2 text-sm leading-6 text-slate-600">展示最近一次测试发送或监控任务命中后的提醒记录，用于联调和验收。</p>
         </div>
         <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200">
           <table className="min-w-full divide-y divide-slate-200 text-sm">
@@ -147,21 +153,24 @@ export function NotificationConsole({ items, logs }: NotificationConsoleProps) {
             </thead>
             <tbody className="divide-y divide-slate-100 bg-white">
               {logs.length ? (
-                logs.map((item) => (
-                  <tr key={item.id}>
-                    <td className="px-4 py-4 align-top">
-                      <p className="font-medium text-ink">{item.subject}</p>
-                      <p className="mt-1 text-xs leading-5 text-slate-500">{item.detail}</p>
-                    </td>
-                    <td className="px-4 py-4 align-top text-slate-600">{item.eventType}</td>
-                    <td className="px-4 py-4 align-top">
-                      <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                        {statusLabelMap[item.status] ?? item.status}
-                      </span>
-                    </td>
-                    <td className="px-4 py-4 align-top text-slate-600">{item.createdAt}</td>
-                  </tr>
-                ))
+                logs.map((item) => {
+                  const cfg = statusConfig[item.status] ?? { label: item.status, style: "bg-slate-100 text-slate-600" };
+                  return (
+                    <tr key={item.id}>
+                      <td className="px-4 py-4 align-top">
+                        <p className="font-medium text-ink">{item.subject}</p>
+                        <p className="mt-1 text-xs leading-5 text-slate-500">{item.detail}</p>
+                      </td>
+                      <td className="px-4 py-4 align-top text-slate-600">{item.eventType}</td>
+                      <td className="px-4 py-4 align-top">
+                        <span className={`rounded-full px-3 py-1 text-xs font-medium ${cfg.style}`}>
+                          {cfg.label}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4 align-top text-slate-600">{item.createdAt}</td>
+                    </tr>
+                  );
+                })
               ) : (
                 <tr>
                   <td colSpan={4} className="px-4 py-6 text-center text-sm text-slate-500">

@@ -4,6 +4,18 @@ import { getCases } from "@/lib/cases";
 
 export const dynamic = "force-dynamic";
 
+const statusStyle: Record<string, string> = {
+  open: "bg-brand-50 text-brand-700",
+  active: "bg-emerald-50 text-emerald-700",
+  pending: "bg-amber-50 text-amber-700",
+  closed: "bg-slate-100 text-slate-500",
+  resolved: "bg-slate-100 text-slate-500",
+};
+
+function caseStatusStyle(status: string) {
+  return statusStyle[status.toLowerCase()] ?? "bg-brand-50 text-brand-700";
+}
+
 export default async function CasesPage() {
   const { items, source, note } = await getCases();
 
@@ -23,14 +35,16 @@ export default async function CasesPage() {
             <Link
               key={item.id}
               href={`/workspace/cases/${item.id}`}
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-200"
+              className="flex flex-col rounded-3xl border border-slate-200 bg-white p-6 shadow-sm transition hover:-translate-y-1 hover:border-brand-200"
             >
-              <div className="flex items-center justify-between gap-3">
-                <h2 className="text-lg font-semibold text-ink">{item.title}</h2>
-                <span className="rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700">{item.status}</span>
+              <div className="flex items-start justify-between gap-3">
+                <h2 className="text-base font-semibold text-ink leading-6">{item.title}</h2>
+                <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-medium ${caseStatusStyle(item.status)}`}>
+                  {item.status}
+                </span>
               </div>
-              <p className="mt-3 text-sm leading-6 text-slate-600">{item.summary}</p>
-              <p className="mt-4 text-xs text-slate-500">来源：{item.source} · 更新：{item.updatedAt}</p>
+              <p className="mt-3 flex-1 text-sm leading-6 text-slate-600 line-clamp-3">{item.summary}</p>
+              <p className="mt-4 text-xs text-slate-400">来源：{item.source} · 更新：{item.updatedAt}</p>
             </Link>
           ))
         ) : (

@@ -17,8 +17,15 @@ export type EvidencePackListItem = {
   screenshotUrl?: string;
   screenshotDownloadUrl?: string;
   htmlDownloadUrl?: string;
+  timestampDownloadUrl?: string;
   screenshotAvailable?: boolean;
   htmlAvailable?: boolean;
+  timestampAvailable?: boolean;
+  timestampStatus?: string;
+  timestampProvider?: string;
+  timestampTokenPath?: string;
+  timestampMessage?: string;
+  timestampAt?: string;
 };
 
 type ApiEvidencePack = {
@@ -31,6 +38,11 @@ type ApiEvidencePack = {
   status?: string;
   snapshot_path?: string;
   html_path?: string;
+  timestamp_status?: string;
+  timestamp_provider?: string;
+  timestamp_token_path?: string;
+  timestamp_message?: string;
+  timestamp_at?: string | null;
   note?: string | null;
 };
 
@@ -41,6 +53,8 @@ type ApiEvidencePreviewPayload = {
   screenshot_url?: string | null;
   screenshot_download_url?: string | null;
   html_download_url?: string | null;
+  timestamp_available?: boolean;
+  timestamp_download_url?: string | null;
   html_excerpt?: string;
 };
 
@@ -89,6 +103,10 @@ function normalizePack(record: ApiEvidencePack, index = 0): EvidencePackListItem
   const artifactPaths = [record.snapshot_path, record.html_path]
     .map((item) => toStringValue(item))
     .filter(Boolean);
+  const timestampTokenPath = toStringValue(record.timestamp_token_path);
+  if (timestampTokenPath) {
+    artifactPaths.push(timestampTokenPath);
+  }
   const sourceLabel = toSourceLabel(record.capture_channel, "公开网页");
   const snippetText = toStringValue(record.note, "页面抓取内容已归档。\n可在下方进行预览与下载。");
   const htmlSnippet = [
@@ -119,6 +137,12 @@ function normalizePack(record: ApiEvidencePack, index = 0): EvidencePackListItem
     htmlSnippet,
     screenshotAvailable: Boolean(toStringValue(record.snapshot_path)),
     htmlAvailable: Boolean(toStringValue(record.html_path)),
+    timestampAvailable: Boolean(timestampTokenPath),
+    timestampStatus: toStringValue(record.timestamp_status, "not_configured"),
+    timestampProvider: toStringValue(record.timestamp_provider),
+    timestampTokenPath,
+    timestampMessage: toStringValue(record.timestamp_message),
+    timestampAt: toStringValue(record.timestamp_at),
   };
 }
 
@@ -151,6 +175,8 @@ export async function getEvidencePackById(packId: string): Promise<DetailFetchRe
     item.screenshotUrl = toProxyAssetUrl(preview.screenshot_url);
     item.screenshotDownloadUrl = toProxyAssetUrl(preview.screenshot_download_url);
     item.htmlDownloadUrl = toProxyAssetUrl(preview.html_download_url);
+    item.timestampAvailable = Boolean(preview.timestamp_available) || item.timestampAvailable;
+    item.timestampDownloadUrl = toProxyAssetUrl(preview.timestamp_download_url);
     item.htmlSnippet = toStringValue(preview.html_excerpt, item.htmlSnippet ?? "");
     return { item, source: "api" };
   }

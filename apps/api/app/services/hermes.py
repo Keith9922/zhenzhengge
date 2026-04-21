@@ -130,18 +130,54 @@ class HermesOrchestrator:
             ),
         }
 
-    def submit_capture_workflow(self, case_id: str) -> WorkflowResult:
+    def submit_capture_workflow(
+        self,
+        case_id: str,
+        *,
+        case_context: Mapping[str, Any],
+        evidence_context: Sequence[Mapping[str, Any]] | None = None,
+    ) -> WorkflowResult:
+        result = self.generate_case_summary(
+            case_context=case_context,
+            evidence_context=evidence_context,
+        )
+        if result.status == "ok" and result.content:
+            return WorkflowResult(
+                workflow_name="capture_and_review",
+                status="completed",
+                detail=result.content,
+            )
         return WorkflowResult(
             workflow_name="capture_and_review",
-            status="completed",
-            detail=f"取证工作流已执行，case_id={case_id}",
+            status="fallback",
+            detail=result.detail or f"摘要生成未返回内容，case_id={case_id}",
         )
 
-    def submit_document_workflow(self, template_key: str, case_id: str) -> WorkflowResult:
+    def submit_document_workflow(
+        self,
+        template_key: str,
+        case_id: str,
+        *,
+        case_context: Mapping[str, Any],
+        evidence_context: Sequence[Mapping[str, Any]] | None = None,
+    ) -> WorkflowResult:
+        if not case_context.get("title"):
+            return WorkflowResult(
+                workflow_name="document_draft",
+                status="skipped",
+                detail=f"案件信息不完整，跳过预检，case_id={case_id}",
+            )
+        evidence_count = len(evidence_context or [])
+        if evidence_count == 0:
+            return WorkflowResult(
+                workflow_name="document_draft",
+                status="skipped",
+                detail=f"尚无证据包，跳过文书预检，case_id={case_id}",
+            )
         return WorkflowResult(
             workflow_name="document_draft",
-            status="completed",
-            detail=f"文书编排已执行，template_key={template_key}, case_id={case_id}",
+            status="ready",
+            detail=f"文书预检通过，template_key={template_key}，证据包数={evidence_count}，case_id={case_id}",
         )
 
     def schedule_monitoring(self, target: str) -> WorkflowResult:

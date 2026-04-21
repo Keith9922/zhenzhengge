@@ -1,0 +1,72 @@
+name: Extension Build
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+    paths:
+      - "apps/extension/**"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/extension-build.yml"
+  pull_request:
+    paths:
+      - "apps/extension/**"
+      - "pnpm-workspace.yaml"
+      - "package.json"
+      - "pnpm-lock.yaml"
+      - ".github/workflows/extension-build.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: extension-build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: plasmo build (node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: ["20", "22"]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        working-directory: apps/extension
+        run: pnpm exec tsc --noEmit
+
+      - name: Build extension
+        working-directory: apps/extension
+        env:
+          PLASMO_PUBLIC_API_BASE_URL: "http://127.0.0.1:8000"
+          PLASMO_PUBLIC_WEB_BASE_URL: "http://localhost:3000"
+          PLASMO_PUBLIC_ALLOW_SIMULATED_SUBMISSION: "true"
+          PLASMO_PUBLIC_API_TOKEN: "dev-ci-token"
+        run: pnpm build
+
+      - name: Upload extension artifact
+        if: matrix.node-version == '22'
+        uses: actions/upload-artifact@v4
+        with:
+          name: extension-build
+          path: apps/extension/build
+          if-no-files-found: warn
+          retention-days: 7

@@ -15,6 +15,8 @@ class CaseStatus(str, Enum):
 
 class CaseSummary(BaseModel):
     case_id: str
+    organization_id: str = "org-default"
+    owner_user_id: str = "system"
     title: str
     brand_name: str
     suspect_name: str
@@ -48,3 +50,49 @@ class CaseCreateRequest(BaseModel):
 class CaseListResponse(BaseModel):
     total: int
     items: list[CaseSummary]
+
+
+class CaseActionItem(BaseModel):
+    action_id: str
+    title: str
+    description: str
+    priority: str
+    cta_label: str
+    href: str
+
+
+class CaseActionCenterResponse(BaseModel):
+    case_id: str
+    generated_at: datetime
+    items: list[CaseActionItem]
+
+
+class EvidenceClaimReference(BaseModel):
+    draft_id: str
+    draft_title: str
+    line_no: int
+    claim_text: str
+
+
+class CaseEvidenceClaimLinkItem(BaseModel):
+    evidence_pack_id: str
+    source_title: str
+    claim_count: int
+    claims: list[EvidenceClaimReference]
+
+
+class CaseEvidenceClaimLinksResponse(BaseModel):
+    case_id: str
+    generated_at: datetime
+    total_evidence: int
+    total_claims: int
+    items: list[CaseEvidenceClaimLinkItem]
+
+
+class CaseInsightsResponse(BaseModel):
+    generated_at: datetime
+    total_cases: int
+    cases_with_actions: int
+    action_rate: float
+    evidence_pass_rate: float
+    tta_hours: float | None = None

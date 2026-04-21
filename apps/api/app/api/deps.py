@@ -1,5 +1,6 @@
 from fastapi import Request
 
+from app.core.config import Settings
 from app.services.cases import CaseService
 from app.services.audit import AuditService
 from app.services.drafts import DocumentDraftService
@@ -14,6 +15,10 @@ from app.services.templates import DocumentTemplateService
 
 def get_case_service(request: Request) -> CaseService:
     return request.app.state.services["cases"]
+
+
+def get_app_settings(request: Request) -> Settings:
+    return request.app.state.settings
 
 
 def get_evidence_service(request: Request) -> EvidenceService:

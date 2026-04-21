@@ -4,9 +4,52 @@ type DraftMarkdownProps = {
   content: string;
 };
 
+/**
+ * 将 EvidenceID=xxx 渲染为高亮徽章，其余按标准 inline Markdown 渲染。
+ * 先用 EvidenceID= 切分，再递归处理其他 inline 格式。
+ */
 function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
+  // ── EvidenceID=xxx 徽章 ──────────────────────────────────────────────────
+  const eidPattern = /(EvidenceID=([A-Za-z0-9_-]+))/g;
+  const eidSplit = text.split(eidPattern);
+  // split("EvidenceID=abc") → ["before", "EvidenceID=abc", "abc", "after", ...]
+  // Every triplet: [plain, fullMatch, id, ...]
+  if (eidSplit.length > 1) {
+    const result: ReactNode[] = [];
+    for (let i = 0; i < eidSplit.length; i++) {
+      const part = eidSplit[i];
+      if (!part) continue;
+      // Index 1 mod 3 == full match "EvidenceID=xxx"
+      if (i % 3 === 1) {
+        const eid = eidSplit[i + 1] ?? part.replace("EvidenceID=", "");
+        result.push(
+          <span
+            key={`${keyPrefix}-eid-${i}`}
+            title={`证据 ID: ${eid}`}
+            className="inline-flex items-center rounded-md bg-brand-50 px-1.5 py-0.5 font-mono text-[0.82em] font-medium text-brand-700 ring-1 ring-brand-200"
+          >
+            <span className="mr-1 text-brand-400 select-none">🔖</span>
+            {eid}
+          </span>,
+        );
+        i += 1; // skip the captured id group
+      } else if (i % 3 === 2) {
+        // The raw id capture group — already consumed above, skip
+        continue;
+      } else {
+        result.push(...renderStandardInline(part, `${keyPrefix}-seg-${i}`));
+      }
+    }
+    return result;
+  }
+
+  return renderStandardInline(text, keyPrefix);
+}
+
+function renderStandardInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  const pattern = /(\*\*([^*]+)\*\*|`([^`]+)`|\[([^\]]+)\]\(([^)]+)\))/g;
+  const pattern =
+    /(\*\*([^*]+)\*\*|__([^_]+)__|(?<!\*)\*([^*\n]+)\*(?!\*)|(?<!_)_([^_\n]+)_(?!_)|`([^`]+)`|<u>([\s\S]+?)<\/u>|\[([^\]]+)\]\(([^)]+)\))/g;
   let lastIndex = 0;
   let match: RegExpExecArray | null = pattern.exec(text);
   let segmentIndex = 0;
@@ -16,31 +59,43 @@ function renderInlineMarkdown(text: string, keyPrefix: string): ReactNode[] {
       nodes.push(text.slice(lastIndex, match.index));
     }
 
-    if (match[2]) {
+    if (match[2] || match[3]) {
       nodes.push(
         <strong key={`${keyPrefix}-strong-${segmentIndex}`} className="font-semibold text-ink">
-          {match[2]}
+          {match[2] || match[3]}
         </strong>,
       );
-    } else if (match[3]) {
+    } else if (match[4] || match[5]) {
+      nodes.push(
+        <em key={`${keyPrefix}-em-${segmentIndex}`} className="italic">
+          {match[4] || match[5]}
+        </em>,
+      );
+    } else if (match[6]) {
       nodes.push(
         <code
           key={`${keyPrefix}-code-${segmentIndex}`}
           className="rounded-lg bg-slate-100 px-1.5 py-0.5 font-mono text-[0.92em] text-brand-700"
         >
-          {match[3]}
+          {match[6]}
         </code>,
       );
-    } else if (match[4] && match[5]) {
+    } else if (match[7]) {
+      nodes.push(
+        <u key={`${keyPrefix}-underline-${segmentIndex}`} className="underline decoration-1 underline-offset-2">
+          {renderInlineMarkdown(match[7], `${keyPrefix}-underline-${segmentIndex}`)}
+        </u>,
+      );
+    } else if (match[8] && match[9]) {
       nodes.push(
         <a
           key={`${keyPrefix}-link-${segmentIndex}`}
-          href={match[5]}
+          href={match[9]}
           target="_blank"
           rel="noreferrer"
           className="text-brand-700 underline decoration-brand-200 underline-offset-4 hover:text-brand-800"
         >
-          {match[4]}
+          {match[8]}
         </a>,
       );
     }
@@ -121,7 +176,7 @@ export function DraftMarkdown({ content }: DraftMarkdownProps) {
       nodes.push(
         <ul key={`ul-${nodes.length}`} className="space-y-2 pl-5 text-sm leading-7 text-slate-700">
           {items.map((item, itemIndex) => (
-            <li key={`ul-item-${itemIndex}`} className="list-disc break-words">
+            <li key={`ul-item-${itemIndex}`} className="list-disc break-all">
               {renderInlineMarkdown(item, `ul-${nodes.length}-${itemIndex}`)}
             </li>
           ))}
@@ -190,9 +245,19 @@ export function DraftMarkdown({ content }: DraftMarkdownProps) {
       index += 1;
     }
 
+    // 保留段落内换行结构——每行之间插入 <br />，避免多行合并成一行
+    const pKey = `p-${nodes.length}`;
+    const pChildren: ReactNode[] = [];
+    paragraphLines.forEach((line, li) => {
+      pChildren.push(...renderInlineMarkdown(line, `${pKey}-l${li}`));
+      if (li < paragraphLines.length - 1) {
+        pChildren.push(<br key={`${pKey}-br${li}`} />);
+      }
+    });
+
     nodes.push(
-      <p key={`p-${nodes.length}`} className="text-sm leading-7 text-slate-700 break-words">
-        {renderInlineMarkdown(paragraphLines.join(" "), `p-${nodes.length}`)}
+      <p key={pKey} className="text-sm leading-7 text-slate-700 break-words">
+        {pChildren}
       </p>,
     );
   }

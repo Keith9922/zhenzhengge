@@ -7,7 +7,7 @@
 <div align="center">
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/Python-3.13+-blue.svg)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-15-black.svg)](https://nextjs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.109-green.svg)](https://fastapi.tiangolo.com/)
 
@@ -237,7 +237,8 @@ ZHZG_CORS_ORIGINS=["http://localhost:3000"]
 
 # 鉴权与角色
 ZHZG_REQUIRE_AUTH=true
-ZHZG_AUTH_TOKENS=dev-admin-token:admin,dev-operator-token:operator,dev-viewer-token:viewer
+# 支持 token:user_id:role:org_id（推荐）；旧 token:role 仍兼容
+ZHZG_AUTH_TOKENS=dev-admin-token:admin-001:admin:org-default,dev-operator-token:op-001:operator:org-default,dev-viewer-token:view-001:viewer:org-default
 
 # LLM 配置
 ZHZG_LLM_PROVIDER=mimo
@@ -252,6 +253,15 @@ ZHZG_HARNESS_PROVIDER=auto
 ZHZG_HARNESS_MODEL=
 ZHZG_HARNESS_TOOLSETS=skills,memory
 ZHZG_HARNESS_SKILLS=hermes-agent,wps-word
+
+# 文书生成策略（建议比赛/生产开启严格模式，失败直接报错）
+ZHZG_DRAFT_GENERATION_STRICT=true
+
+# 可信时间戳（RFC3161，可选；若 REQUIRED=true 则取证失败时会直接报错）
+ZHZG_EVIDENCE_TIMESTAMP_ENABLED=false
+ZHZG_EVIDENCE_TIMESTAMP_TSA_URL=
+ZHZG_EVIDENCE_TIMESTAMP_TIMEOUT_SECONDS=15
+ZHZG_EVIDENCE_TIMESTAMP_REQUIRED=false
 
 # 通知配置（可选）
 ZHZG_SMTP_HOST=smtp.example.com

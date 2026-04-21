@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from difflib import SequenceMatcher
+import logging
 import threading
 from urllib.parse import urlparse
 
@@ -20,6 +21,8 @@ from app.services.evidence import EvidenceService
 from app.services.hermes import HermesOrchestrator
 from app.services.notifications import NotificationAdapter
 from app.services.playwright import PlaywrightWorker
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(slots=True)
@@ -56,17 +59,25 @@ class MonitorTaskService:
         self._scheduler_thread: threading.Thread | None = None
         self._run_lock = threading.Lock()
 
-    def list_tasks(self) -> list[MonitorTaskRecord]:
-        return self.storage.list_monitor_tasks()
+    def list_tasks(self, *, organization_id: str | None = None) -> list[MonitorTaskRecord]:
+        return self.storage.list_monitor_tasks(organization_id=organization_id)
 
-    def get_task(self, task_id: str) -> MonitorTaskRecord | None:
-        return self.storage.get_monitor_task(task_id)
+    def get_task(self, task_id: str, *, organization_id: str | None = None) -> MonitorTaskRecord | None:
+        return self.storage.get_monitor_task(task_id, organization_id=organization_id)
 
-    def create_task(self, payload: MonitorTaskCreateRequest) -> MonitorTaskRecord:
-        return self.storage.create_monitor_task(payload)
+    def create_task(
+        self,
+        payload: MonitorTaskCreateRequest,
+        *,
+        organization_id: str,
+        owner_user_id: str,
+    ) -> MonitorTaskRecord:
+        return self.storage.create_monitor_task(payload, organization_id=organization_id, owner_user_id=owner_user_id)
 
-    def toggle_task(self, task_id: str, enabled: bool) -> MonitorTaskRecord | None:
-        return self.storage.toggle_monitor_task(task_id, enabled)
+    def toggle_task(
+        self, task_id: str, enabled: bool, *, organization_id: str | None = None
+    ) -> MonitorTaskRecord | None:
+        return self.storage.toggle_monitor_task(task_id, enabled, organization_id=organization_id)
 
     def start_scheduler(self) -> None:
         if self._scheduler_thread and self._scheduler_thread.is_alive():
@@ -88,25 +99,51 @@ class MonitorTaskService:
                 continue
             if not self._is_due(task, now):
                 continue
-            result = self.run_task(task.task_id, trigger="scheduler")
+            result = self.run_task(task.task_id, trigger="scheduler", organization_id=task.organization_id)
             if result is not None:
                 triggered += 1
         return triggered
 
-    def run_task(self, task_id: str, *, trigger: str = "manual") -> MonitorRunResult | None:
+    def run_task(
+        self,
+        task_id: str,
+        *,
+        trigger: str = "manual",
+        organization_id: str | None = None,
+        owner_user_id: str | None = None,
+    ) -> MonitorRunResult | None:
         if not self._run_lock.acquire(timeout=30):
             return None
-        run_id = self.storage.create_monitor_run(task_id=task_id)
         try:
-            return self._run_task_inner(task_id, run_id=run_id, trigger=trigger)
+            task = self.storage.get_monitor_task(task_id, organization_id=organization_id)
+            if task is None:
+                return None
+            org_id_for_run = task.organization_id
+            run_id = self.storage.create_monitor_run(task_id=task_id, organization_id=org_id_for_run)
+            return self._run_task_inner(
+                task_id,
+                run_id=run_id,
+                trigger=trigger,
+                organization_id=org_id_for_run,
+                owner_user_id=owner_user_id,
+            )
         finally:
             self._run_lock.release()
 
-    def _run_task_inner(self, task_id: str, *, run_id: str, trigger: str) -> MonitorRunResult | None:
-        task = self.storage.mark_monitor_task_run(task_id)
+    def _run_task_inner(
+        self,
+        task_id: str,
+        *,
+        run_id: str,
+        trigger: str,
+        organization_id: str | None = None,
+        owner_user_id: str | None = None,
+    ) -> MonitorRunResult | None:
+        task = self.storage.mark_monitor_task_run(task_id, organization_id=organization_id)
         if task is None:
             self.storage.finish_monitor_run(
                 run_id=run_id,
+                organization_id=organization_id,
                 status="failed",
                 risk_score=0,
                 detail="监控任务不存在",
@@ -121,6 +158,7 @@ class MonitorTaskService:
             )
             self.storage.finish_monitor_run(
                 run_id=run_id,
+                organization_id=task.organization_id,
                 status="missed",
                 risk_score=risk_score,
                 detail=detail,
@@ -145,11 +183,14 @@ class MonitorTaskService:
                 description=description,
                 tags=self._derive_tags(task),
                 monitoring_scope=[task.target_url, task.site],
-            )
+            ),
+            organization_id=task.organization_id,
+            owner_user_id=owner_user_id or task.owner_user_id,
         )
-        _ = self.hermes.submit_capture_workflow(case.case_id)
         evidence_pack = self.evidence_service.create_pack_for_case(
             case_id=case.case_id,
+            organization_id=task.organization_id,
+            owner_user_id=owner_user_id or task.owner_user_id,
             source_url=capture.source_url,
             source_title=capture.title or task.name,
             note=f"monitor-task:{task.task_id}",
@@ -159,8 +200,9 @@ class MonitorTaskService:
             evidence_pack,
             raw_html=capture.html_content,
             screenshot_bytes=capture.screenshot_bytes,
+            organization_id=task.organization_id,
         )
-        case = self.case_service.attach_evidence(case.case_id) or case
+        case = self.case_service.attach_evidence(case.case_id, organization_id=task.organization_id) or case
 
         notification_subject = f"【证证鸽】发现新的疑似侵权线索：{case.title}"
         notification_body = (
@@ -176,12 +218,14 @@ class MonitorTaskService:
             event_type="monitor_hit",
             subject=notification_subject,
             body=notification_body,
+            organization_id=task.organization_id,
             task_id=task.task_id,
             case_id=case.case_id,
         )
         detail = "命中监控规则，已创建案件、证据包并触发通知"
         self.storage.finish_monitor_run(
             run_id=run_id,
+            organization_id=task.organization_id,
             status="matched",
             risk_score=risk_score,
             case_id=case.case_id,
@@ -198,8 +242,14 @@ class MonitorTaskService:
             detail=detail,
         )
 
-    def list_task_runs(self, task_id: str, *, limit: int = 20) -> list[dict[str, str | int | None]]:
-        rows = self.storage.list_monitor_runs(task_id=task_id, limit=limit)
+    def list_task_runs(
+        self,
+        task_id: str,
+        *,
+        organization_id: str | None = None,
+        limit: int = 20,
+    ) -> list[dict[str, str | int | None]]:
+        rows = self.storage.list_monitor_runs(task_id=task_id, organization_id=organization_id, limit=limit)
         return [
             {
                 "run_id": row["run_id"],
@@ -221,7 +271,7 @@ class MonitorTaskService:
             try:
                 self.run_due_tasks()
             except Exception:
-                pass
+                logger.exception("监控调度器执行异常")
             self._stop_event.wait(interval)
 
     def _generate_case_description(

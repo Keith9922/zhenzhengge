@@ -4,7 +4,32 @@ type EvidencePackPreviewProps = {
   item: EvidencePackListItem;
 };
 
+function TimestampBadge({ status }: { status?: string }) {
+  if (status === "stamped") {
+    return (
+      <span className="rounded-full bg-emerald-100 px-3 py-1 text-xs font-medium text-emerald-700">
+        时间戳：已签发
+      </span>
+    );
+  }
+  if (status === "hash_only") {
+    return (
+      <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-medium text-amber-700">
+        时间戳：哈希存证
+      </span>
+    );
+  }
+  return (
+    <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+      时间戳：未存证
+    </span>
+  );
+}
+
 export function EvidencePackPreview({ item }: EvidencePackPreviewProps) {
+  const isHashOnly = item.timestampStatus === "hash_only";
+  const isStamped = item.timestampStatus === "stamped";
+
   return (
     <div className="space-y-6">
       <article className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
@@ -72,12 +97,13 @@ export function EvidencePackPreview({ item }: EvidencePackPreviewProps) {
             <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
               HTML：{item.htmlAvailable ? "已归档" : "未归档"}
             </span>
+            <TimestampBadge status={item.timestampStatus} />
           </div>
         </div>
         <p className="mt-3 text-sm leading-6 text-slate-600">
           HTML 文本片段不再直接铺在页面里，避免干扰主视图；如需核对原始页面内容，请通过下面的下载入口查看。
         </p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
           {item.screenshotDownloadUrl ? (
             <a
               href={item.screenshotDownloadUrl}
@@ -110,8 +136,24 @@ export function EvidencePackPreview({ item }: EvidencePackPreviewProps) {
               HTML 暂不可下载
             </button>
           )}
+          {isStamped && item.timestampDownloadUrl ? (
+            <a
+              href={item.timestampDownloadUrl}
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700"
+            >
+              下载时间戳回执
+            </a>
+          ) : (
+            <button
+              type="button"
+              className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-500"
+              disabled
+            >
+              {isHashOnly ? "哈希存证（无回执文件）" : "时间戳回执暂不可下载"}
+            </button>
+          )}
         </div>
-        <div className="mt-4 grid gap-3 md:grid-cols-2">
+        <div className="mt-4 grid gap-3 md:grid-cols-3">
           <div className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">截图文件</p>
             <p className="mt-2 break-all text-sm leading-6 text-slate-700">{item.snapshotPath || "未归档截图文件"}</p>
@@ -120,10 +162,28 @@ export function EvidencePackPreview({ item }: EvidencePackPreviewProps) {
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">HTML 文件</p>
             <p className="mt-2 break-all text-sm leading-6 text-slate-700">{item.htmlPath || "未归档 HTML 文件"}</p>
           </div>
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+              {isHashOnly ? "哈希链存证" : "时间戳回执"}
+            </p>
+            {isHashOnly ? (
+              <>
+                <p className="mt-2 break-all font-mono text-xs leading-5 text-slate-600">{item.timestampTokenPath || "—"}</p>
+                <p className="mt-2 text-xs leading-5 text-slate-500">本地 SHA-256 哈希链，证明内容完整性</p>
+                {item.timestampAt ? <p className="mt-1 text-xs text-slate-400">存证时间：{item.timestampAt}</p> : null}
+              </>
+            ) : (
+              <>
+                <p className="mt-2 break-all text-sm leading-6 text-slate-700">{item.timestampTokenPath || "未生成时间戳回执"}</p>
+                {item.timestampAt ? <p className="mt-1 text-xs text-slate-500">签发时间：{item.timestampAt}</p> : null}
+                {item.timestampMessage ? <p className="mt-1 text-xs text-slate-500">状态：{item.timestampMessage}</p> : null}
+              </>
+            )}
+          </div>
         </div>
         {!item.htmlDownloadUrl || !item.screenshotDownloadUrl ? (
           <div className="mt-4 rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-4 text-sm leading-6 text-slate-600">
-            当前证据包未返回全部文件下载能力，页面会保留占位，避免误导为真实可下载。
+            当前证据包未返回全部文件下载能力，页面保留占位，避免误导为真实可下载。
           </div>
         ) : null}
       </article>

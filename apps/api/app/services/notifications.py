@@ -1,8 +1,10 @@
+import base64
 import hashlib
 import hmac
 import time
 from email.message import EmailMessage
 import smtplib
+import urllib.parse
 
 import httpx
 
@@ -27,17 +29,27 @@ class NotificationAdapter:
             "description": "通知渠道已接入；未配置 SMTP 时邮件发送会失败并记录日志。",
         }
 
-    def list_channels(self) -> list[NotificationChannelRecord]:
-        return self.storage.list_notification_channels()
+    def list_channels(self, *, organization_id: str | None = None) -> list[NotificationChannelRecord]:
+        return self.storage.list_notification_channels(organization_id=organization_id)
 
-    def create_channel(self, payload: NotificationChannelCreateRequest) -> NotificationChannelRecord:
-        return self.storage.create_notification_channel(payload)
+    def create_channel(
+        self,
+        payload: NotificationChannelCreateRequest,
+        *,
+        organization_id: str,
+        owner_user_id: str,
+    ) -> NotificationChannelRecord:
+        return self.storage.create_notification_channel(
+            payload,
+            organization_id=organization_id,
+            owner_user_id=owner_user_id,
+        )
 
-    def get_channel(self, channel_id: str) -> NotificationChannelRecord | None:
-        return self.storage.get_notification_channel(channel_id)
+    def get_channel(self, channel_id: str, *, organization_id: str | None = None) -> NotificationChannelRecord | None:
+        return self.storage.get_notification_channel(channel_id, organization_id=organization_id)
 
-    def list_logs(self, *, limit: int = 50) -> list[dict[str, str | None]]:
-        rows = self.storage.list_notification_logs(limit=limit)
+    def list_logs(self, *, organization_id: str | None = None, limit: int = 50) -> list[dict[str, str | None]]:
+        rows = self.storage.list_notification_logs(organization_id=organization_id, limit=limit)
         return [
             {
                 "log_id": row["log_id"],
@@ -87,8 +99,15 @@ class NotificationAdapter:
             client.send_message(message)
         return {"channel": "email", "status": "sent", "detail": f"已发送邮件通知：{subject}"}
 
-    def test_channel(self, channel_id: str, *, subject: str, body: str) -> dict[str, str]:
-        channel = self.get_channel(channel_id)
+    def test_channel(
+        self,
+        channel_id: str,
+        *,
+        organization_id: str,
+        subject: str,
+        body: str,
+    ) -> dict[str, str]:
+        channel = self.get_channel(channel_id, organization_id=organization_id)
         if channel is None:
             raise ValueError("通知渠道不存在")
         if not channel.enabled:
@@ -104,6 +123,7 @@ class NotificationAdapter:
             body=body,
             status=result["status"],
             detail=result["detail"],
+            organization_id=organization_id,
         )
         return result
 
@@ -113,11 +133,12 @@ class NotificationAdapter:
         event_type: str,
         subject: str,
         body: str,
+        organization_id: str,
         task_id: str | None = None,
         case_id: str | None = None,
     ) -> list[dict[str, str]]:
         results: list[dict[str, str]] = []
-        for channel in self.list_channels():
+        for channel in self.list_channels(organization_id=organization_id):
             if not channel.enabled:
                 continue
             if channel.channel_type.value == "dingtalk":
@@ -133,6 +154,7 @@ class NotificationAdapter:
                 body=body,
                 status=result["status"],
                 detail=result["detail"],
+                organization_id=organization_id,
             )
             results.append(
                 {
@@ -155,9 +177,6 @@ class NotificationAdapter:
         secret = secret.strip()
         timestamp = str(round(time.time() * 1000))
         sign = hmac.new(secret.encode("utf-8"), f"{timestamp}\n{secret}".encode("utf-8"), hashlib.sha256).digest()
-        import base64
-        import urllib.parse
-
         encoded = urllib.parse.quote_plus(base64.b64encode(sign))
         connector = "&" if "?" in base else "?"
         return f"{base}{connector}timestamp={timestamp}&sign={encoded}"

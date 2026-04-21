@@ -15,6 +15,8 @@ class DraftStatus(str, Enum):
 class DocumentDraftRecord(BaseModel):
     draft_id: str
     case_id: str
+    organization_id: str = "org-default"
+    owner_user_id: str = "system"
     template_key: str
     title: str
     status: DraftStatus

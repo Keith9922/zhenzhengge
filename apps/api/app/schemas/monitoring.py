@@ -11,6 +11,8 @@ class MonitorTaskStatus(str, Enum):
 
 class MonitorTaskRecord(BaseModel):
     task_id: str
+    organization_id: str = "org-default"
+    owner_user_id: str = "system"
     name: str
     target_url: str
     target_type: str

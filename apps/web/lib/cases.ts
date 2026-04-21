@@ -1,4 +1,4 @@
-import { getApiV1BaseUrl } from "@/lib/env";
+import { getApiAuthToken, getApiV1BaseUrl } from "@/lib/env";
 import { buildApiErrorNote, type DetailFetchResult, type ListFetchResult } from "@/lib/data-source";
 
 export type CaseStatus = string;
@@ -409,10 +409,13 @@ function mergeCaseDetailWithEvidencePacks(
 async function fetchJson(endpoint: string): Promise<JsonFetchResult> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 3000);
+  const token = getApiAuthToken().trim();
+  const headers = token ? { Authorization: `Bearer ${token}` } : undefined;
   try {
     const response = await fetch(endpoint, {
       cache: "no-store",
       signal: controller.signal,
+      headers,
     });
 
     if (!response.ok) {

@@ -338,6 +338,7 @@ class OpenAICompatibleLLMService:
         )
 
         if "平台投诉函" in template_name:
+            platform_requirements = self._platform_complaint_requirements(template_name, platform)
             return (
                 f"# {template_name}\n\n"
                 "## 一、投诉对象\n"
@@ -350,12 +351,12 @@ class OpenAICompatibleLLMService:
                 f"{evidence_lines}\n\n"
                 f"> 证据留存说明：{evidence_note}\n\n"
                 "## 四、请求平台处理事项\n"
-                "1. 请尽快核验涉案页面及相关主体信息。\n"
-                "2. 如发现存在涉嫌侵权、混淆或冒用展示，请采取下架、断链或限制传播等必要措施。\n"
-                "3. 请保留平台侧日志信息，便于后续沟通与进一步核验。\n\n"
-                "## 五、补充信息\n"
+                f"{platform_requirements['actions']}\n\n"
+                "## 五、平台字段补充\n"
+                f"{platform_requirements['fields']}\n\n"
+                "## 六、补充信息\n"
                 f"{variable_lines}\n\n"
-                "## 六、附件说明\n"
+                "## 七、附件说明\n"
                 "- 附件包括案件摘要、证据目录、页面截图与 HTML 留存信息。\n"
                 "- 本草稿用于法务审核与平台沟通前整理，正式提交前仍需人工复核。\n"
             )
@@ -405,6 +406,58 @@ class OpenAICompatibleLLMService:
             "- 附件包括页面截图、HTML 留存、证据目录及案件摘要。\n"
             "- 本草稿用于法务审核前预览，正式对外动作仍需人工确认。\n"
         )
+
+    @staticmethod
+    def _platform_complaint_requirements(template_name: str, fallback_platform: str) -> dict[str, str]:
+        normalized_name = template_name.lower()
+        platform_name = fallback_platform
+        fields = [
+            "- 店铺/主体标识：待补充",
+            "- 商品或链接 ID：待补充",
+            "- 权利证明材料：商标/专利/著作权文件",
+        ]
+        actions = [
+            "1. 请尽快核验涉案页面及相关主体信息。",
+            "2. 如发现涉嫌侵权、混淆或冒用展示，请采取下架、断链或限制传播措施。",
+            "3. 请保留平台侧日志信息，便于后续沟通与进一步核验。",
+        ]
+
+        if "淘宝" in template_name or "taobao" in normalized_name:
+            platform_name = "淘宝"
+            fields.extend(
+                [
+                    "- 淘宝商品 ID：待补充",
+                    "- 店铺旺旺号：待补充",
+                    "- 是否为重复投诉：是/否",
+                ]
+            )
+            actions.append("4. 请同步反馈平台申诉入口回执编号，便于后续跟踪。")
+        elif "拼多多" in template_name or "pinduoduo" in normalized_name:
+            platform_name = "拼多多"
+            fields.extend(
+                [
+                    "- 拼多多商品 ID：待补充",
+                    "- 店铺编号：待补充",
+                    "- 侵权类型标签：商标/版权/外观专利",
+                ]
+            )
+            actions.append("4. 请标记疑似关联店铺，便于进行溯源处理。")
+        elif "京东" in template_name or normalized_name.endswith("-jd"):
+            platform_name = "京东"
+            fields.extend(
+                [
+                    "- 京东商品编号：待补充",
+                    "- 店铺商家编码：待补充",
+                    "- 是否需要快速下架：是/否",
+                ]
+            )
+            actions.append("4. 如可行，请同步触发同款关联链接核查。")
+
+        fields_text = [f"- 平台：{platform_name}"] + fields
+        return {
+            "actions": "\n".join(actions),
+            "fields": "\n".join(fields_text),
+        }
 
     @staticmethod
     def _format_mapping_lines(mapping: Mapping[str, str]) -> str:

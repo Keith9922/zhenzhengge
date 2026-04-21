@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 
 from app.api.deps import get_audit_service, get_monitor_task_service
-from app.api.security import CurrentUser, require_roles
+from app.api.security import CurrentUser, require_roles, resolve_scope_organization
 from app.schemas.common import ApiMessage
 from app.schemas.monitoring import (
     MonitorTaskCreateRequest,
@@ -18,9 +18,9 @@ router = APIRouter()
 @router.get("", response_model=MonitorTaskListResponse, summary="监控任务列表")
 def list_monitor_tasks(
     service: MonitorTaskService = Depends(get_monitor_task_service),
-    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
+    user: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> MonitorTaskListResponse:
-    items = service.list_tasks()
+    items = service.list_tasks(organization_id=resolve_scope_organization(user))
     return MonitorTaskListResponse(total=len(items), items=items)
 
 
@@ -31,9 +31,12 @@ def create_monitor_task(
     audit: AuditService = Depends(get_audit_service),
     user: CurrentUser = Depends(require_roles("operator", "admin")),
 ) -> MonitorTaskRecord:
-    item = service.create_task(payload)
+    scope_org = resolve_scope_organization(user) or user.organization_id
+    item = service.create_task(payload, organization_id=scope_org, owner_user_id=user.user_id)
     audit.log(
         actor_token=user.token,
+        actor_user_id=user.user_id,
+        actor_org_id=user.organization_id,
         actor_role=user.role,
         action="monitor.create",
         resource_type="monitor_task",
@@ -47,9 +50,9 @@ def create_monitor_task(
 def get_monitor_task(
     task_id: str,
     service: MonitorTaskService = Depends(get_monitor_task_service),
-    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
+    user: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> MonitorTaskRecord:
-    item = service.get_task(task_id)
+    item = service.get_task(task_id, organization_id=resolve_scope_organization(user))
     if item is None:
         raise HTTPException(status_code=404, detail="监控任务不存在")
     return item
@@ -60,11 +63,12 @@ def list_monitor_task_runs(
     task_id: str,
     limit: int = 20,
     service: MonitorTaskService = Depends(get_monitor_task_service),
-    _: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
+    user: CurrentUser = Depends(require_roles("viewer", "operator", "admin")),
 ) -> list[dict[str, str | int | None]]:
-    if service.get_task(task_id) is None:
+    scope_org = resolve_scope_organization(user)
+    if service.get_task(task_id, organization_id=scope_org) is None:
         raise HTTPException(status_code=404, detail="监控任务不存在")
-    return service.list_task_runs(task_id=task_id, limit=limit)
+    return service.list_task_runs(task_id=task_id, organization_id=scope_org, limit=limit)
 
 
 @router.post("/{task_id}/toggle", response_model=MonitorTaskRecord, summary="启停监控任务")
@@ -75,11 +79,13 @@ def toggle_monitor_task(
     audit: AuditService = Depends(get_audit_service),
     user: CurrentUser = Depends(require_roles("operator", "admin")),
 ) -> MonitorTaskRecord:
-    item = service.toggle_task(task_id, payload.enabled)
+    item = service.toggle_task(task_id, payload.enabled, organization_id=resolve_scope_organization(user))
     if item is None:
         raise HTTPException(status_code=404, detail="监控任务不存在")
     audit.log(
         actor_token=user.token,
+        actor_user_id=user.user_id,
+        actor_org_id=user.organization_id,
         actor_role=user.role,
         action="monitor.toggle",
         resource_type="monitor_task",
@@ -96,11 +102,17 @@ def run_monitor_task(
     audit: AuditService = Depends(get_audit_service),
     user: CurrentUser = Depends(require_roles("operator", "admin")),
 ) -> ApiMessage:
-    result = service.run_task(task_id)
+    result = service.run_task(
+        task_id,
+        organization_id=resolve_scope_organization(user),
+        owner_user_id=user.user_id,
+    )
     if result is None:
         raise HTTPException(status_code=404, detail="监控任务不存在")
     audit.log(
         actor_token=user.token,
+        actor_user_id=user.user_id,
+        actor_org_id=user.organization_id,
         actor_role=user.role,
         action="monitor.run",
         resource_type="monitor_task",

@@ -2,7 +2,7 @@
 
 > 文档类型：前后端联调基线  
 > 版本：v0.2  
-> 更新时间：2026-04-12  
+> 更新时间：2026-04-21  
 > 说明：本文档区分“当前已实现接口”和“规划中接口”。联调、测试、页面接线时，默认以“当前已实现接口”为准，不要拿规划接口直接开发。
 
 ## 1. 当前后端状态
@@ -20,15 +20,16 @@
 - 文书草稿生成、提交审核、通过/驳回、导出可用
 - 监控任务创建、列表、启停、手动执行可用
 - 接收方式列表、创建、测试可用
-- 运行时模块状态接口可用
+- 运行时模块状态/合规开关接口可用
+- 组织级 ACL（`organization_id` 作用域）已在核心资源接口生效
+- 可信时间戳（RFC3161）已接入，证据包支持时间戳回执下载
 - 测试和 smoke test 已覆盖主链路
 
 当前仍然是未完全产品化的能力：
 
-- 登录与权限控制
-- 定时调度器
-- docx/pdf 正式导出
-- 通知前端日志展示
+- 注册登录/成员管理（当前为 token + 组织作用域）
+- 平台投诉自动提交
+- 电子签章/司法存证链路
 
 所以，**后端当前是“可联调、可演示、部分真实能力已接通”的状态**：
 
@@ -87,7 +88,7 @@
   "capturedAt": "2026-04-11T08:00:00Z",
   "source": "browser-extension",
   "pageText": "页面正文内容",
-  "html": "<html><body>mock</body></html>",
+  "html": "<html><body>sample-page</body></html>",
   "screenshotBase64": "data:image/png;base64,xxxx",
   "requestId": "req-0001"
 }
@@ -175,6 +176,18 @@
 ### 3.3 案件详情
 
 - `GET /api/v1/cases/{case_id}`
+
+### 3.3.1 案件处置指标
+
+- `GET /api/v1/cases/insights`
+
+### 3.3.2 案件动作中心
+
+- `GET /api/v1/cases/{case_id}/action-center`
+
+### 3.3.3 证据-主张关联
+
+- `GET /api/v1/cases/{case_id}/evidence-claim-links`
 
 返回体：
 
@@ -353,8 +366,8 @@
 
 - 当前草稿内容已接入 Hermes + LLM service
 - 配置 MiMo/OpenAI 兼容模型且网络可达时，会走真实模型生成
-- 模型不可用或远程失败时，会自动回退到本地模板
-- 导出结果当前为 `Markdown` 文件，后续再扩到 `docx/pdf`
+- 比赛/生产可启用严格模式 `ZHZG_DRAFT_GENERATION_STRICT=true`，模型异常时直接失败
+- 导出结果为可编辑 `docx` 文件
 
 ### 3.10 监控任务
 
@@ -386,6 +399,7 @@
 ### 3.12 运行时模块状态
 
 - `GET /api/v1/runtime/modules`
+- `GET /api/v1/runtime/compliance`
 
 返回体：
 
@@ -408,6 +422,8 @@
   }
 ]
 ```
+
+`/runtime/compliance` 用于核验关键开关（鉴权、Demo Seed、严格模式、LLM、回退策略）是否满足现场合规要求。
 
 ## 4. 当前仍未实现或仅部分实现
 

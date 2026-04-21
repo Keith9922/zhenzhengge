@@ -11,7 +11,10 @@ class Settings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
     enable_docs: bool = True
     database_url: str = "sqlite:///./data/zhenzhengge.db"
-    cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:3006", "http://127.0.0.1:3006"])
+    cors_origins: list[str] = Field(default_factory=lambda: [
+        "http://localhost:3000", "http://localhost:3006",
+        "http://127.0.0.1:3000", "http://127.0.0.1:3006",
+    ])
     cors_origin_regex: str = (
         r"^chrome-extension://.*$|"
         r"^http://localhost:(3000|3001|3006)$|"
@@ -37,6 +40,11 @@ class Settings(BaseSettings):
     monitor_scheduler_enabled: bool = True
     monitor_scheduler_interval_seconds: int = 30
     capture_allow_http_fallback: bool = True
+    draft_generation_strict: bool = True
+    evidence_timestamp_enabled: bool = False
+    evidence_timestamp_tsa_url: str = ""
+    evidence_timestamp_timeout_seconds: int = 15
+    evidence_timestamp_required: bool = False
     harness_agent_enabled: bool = False
     harness_cli_command: str = "hermes"
     harness_provider: str = "auto"

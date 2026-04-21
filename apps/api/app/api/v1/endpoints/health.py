@@ -14,6 +14,7 @@ def health(request: Request) -> HealthResponse:
     services = request.app.state.services
     modules = [
         ModuleStatus(**services["hermes"].health()),
+        ModuleStatus(**services["evidence"].timestamp_health()),
         ModuleStatus(**services["playwright"].health()),
         ModuleStatus(**services["notifications"].health()),
     ]
@@ -27,4 +28,3 @@ def health(request: Request) -> HealthResponse:
         uptime_seconds=uptime,
         modules=modules,
     )
-

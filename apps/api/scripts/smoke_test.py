@@ -23,6 +23,7 @@ def main() -> None:
             enable_demo_seed=False,
             require_auth=False,
             monitor_scheduler_enabled=False,
+            draft_generation_strict=False,
         )
         with TestClient(create_app(settings)) as client:
             health = client.get("/health")
@@ -49,6 +50,7 @@ def main() -> None:
             assert payload["evidence_pack"]["case_id"] == case_id
             assert payload["case"]["brand_name"] == "阿波达斯商品页疑似仿冒"
             assert payload["case"]["platform"] == "browser-extension"
+            intake_draft_id = payload["generated_draft"]["draft_id"]
 
             detail = client.get(f"/api/v1/cases/{case_id}")
             assert detail.status_code == 200, detail.text
@@ -81,6 +83,35 @@ def main() -> None:
             exported = client.post(f"/api/v1/document-drafts/{draft_id}/export")
             assert exported.status_code == 200, exported.text
             assert exported.json()["file_path"].endswith(f"{draft_id}.docx")
+
+            update = client.patch(
+                f"/api/v1/document-drafts/{intake_draft_id}",
+                json={
+                    "content": (
+                        "# 自动化核验草稿\n"
+                        f"- 主张：页面存在品牌近似展示，EvidenceID={evidence_pack_id}\n"
+                        "- 处理建议：先人工复核后再发起动作。"
+                    )
+                },
+            )
+            assert update.status_code == 200, update.text
+
+            insights = client.get("/api/v1/cases/insights")
+            assert insights.status_code == 200, insights.text
+            assert insights.json()["total_cases"] >= 1
+
+            action_center = client.get(f"/api/v1/cases/{case_id}/action-center")
+            assert action_center.status_code == 200, action_center.text
+            assert len(action_center.json()["items"]) >= 1
+
+            claim_links = client.get(f"/api/v1/cases/{case_id}/evidence-claim-links")
+            assert claim_links.status_code == 200, claim_links.text
+            assert claim_links.json()["total_evidence"] >= 1
+            assert claim_links.json()["total_claims"] >= 1
+
+            runtime_compliance = client.get("/api/v1/runtime/compliance")
+            assert runtime_compliance.status_code == 200, runtime_compliance.text
+            assert "compliance_ready" in runtime_compliance.json()
 
             monitor = client.post(
                 "/api/v1/monitor-tasks",

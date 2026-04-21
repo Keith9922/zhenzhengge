@@ -59,6 +59,7 @@ yarn-error.log*
 
 # Generated & Temp (but keep templates)
 output/
+outputs/
 tmp/
 *.tmp
 *.swp
@@ -95,6 +96,8 @@ Desktop.ini
 *.flac
 *.m4a
 *.zip
+*.pptx
+*.ppt
 song.mp3
 minimax_music/
 知识产权侵权文书模板/

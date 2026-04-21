@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 
 from app.api.deps import get_audit_service
-from app.api.security import CurrentUser, require_roles
+from app.api.security import CurrentUser, require_roles, resolve_scope_organization
 from app.services.audit import AuditService
 
 router = APIRouter()
@@ -11,13 +11,15 @@ router = APIRouter()
 def list_audit_logs(
     limit: int = 100,
     service: AuditService = Depends(get_audit_service),
-    _: CurrentUser = Depends(require_roles("admin")),
+    user: CurrentUser = Depends(require_roles("admin")),
 ) -> list[dict[str, str]]:
-    rows = service.storage.list_audit_logs(limit=limit)
+    rows = service.storage.list_audit_logs(actor_org_id=resolve_scope_organization(user), limit=limit)
     return [
         {
             "audit_id": row["audit_id"],
-            "actor_token": row["actor_token"],
+            "actor_token": (row["actor_token"] or "")[:8] + "***",
+            "actor_user_id": row["actor_user_id"],
+            "actor_org_id": row["actor_org_id"],
             "actor_role": row["actor_role"],
             "action": row["action"],
             "resource_type": row["resource_type"],

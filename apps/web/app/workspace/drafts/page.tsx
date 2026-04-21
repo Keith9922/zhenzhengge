@@ -4,6 +4,7 @@ import { DraftCreateForm } from "@/components/workspace/draft-create-form";
 import { getDrafts } from "@/lib/drafts";
 import { getCases } from "@/lib/cases";
 import { getEvidencePacks } from "@/lib/evidence-packs";
+import { getDocumentTemplates } from "@/lib/document-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +25,7 @@ export default async function DraftsPage({ searchParams }: DraftsPageProps) {
   const capturedTitle = params?.title;
   const { items, source, note } = await getDrafts(caseId);
   const { items: cases, source: caseSource, note: caseNote } = await getCases();
+  const { items: templates } = await getDocumentTemplates();
 
   // 获取最新证据包作为捕获内容
   let capturedContent: CapturedContent | undefined;
@@ -64,7 +66,7 @@ export default async function DraftsPage({ searchParams }: DraftsPageProps) {
         </p>
       </div>
 
-      <DraftCreateForm defaultCaseId={caseId} cases={cases} capturedContent={capturedContent} />
+      <DraftCreateForm defaultCaseId={caseId} cases={cases} templates={templates} capturedContent={capturedContent} />
 
       <div className="grid gap-4">
         {items.length ? (

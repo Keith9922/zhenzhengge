@@ -7,14 +7,13 @@ import { postProxyJson } from "@/lib/client-api";
 type DraftActionsProps = {
   draftId: string;
   status: string;
-  exportPath?: string;
 };
 
-export function DraftActions({ draftId, status, exportPath }: DraftActionsProps) {
+export function DraftActions({ draftId, status }: DraftActionsProps) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [comment, setComment] = useState("");
-  const [message, setMessage] = useState(exportPath ? `已导出：${exportPath}` : "");
+  const [message, setMessage] = useState("");
 
   function trigger(path: string, payload?: Record<string, string>) {
     setMessage("");
@@ -24,9 +23,9 @@ export function DraftActions({ draftId, status, exportPath }: DraftActionsProps)
         if (!response.ok) {
           throw new Error(await response.text());
         }
-        const result = (await response.json()) as { file_path?: string; item?: { export_path?: string } };
-        const filePath = result.file_path || result.item?.export_path;
-        setMessage(filePath ? `已导出：${filePath}` : "操作已完成");
+        const result = (await response.json()) as { item?: Record<string, unknown> };
+        void result;
+        setMessage("操作已完成");
         router.refresh();
       } catch (error) {
         setMessage(error instanceof Error ? error.message : "操作失败");
@@ -72,14 +71,6 @@ export function DraftActions({ draftId, status, exportPath }: DraftActionsProps)
           className="rounded-full bg-rose-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
         >
           驳回
-        </button>
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() => trigger(`/document-drafts/${draftId}/export`)}
-          className="rounded-full bg-ink px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
-        >
-          导出草稿
         </button>
       </div>
       {message ? <p className="mt-4 break-all text-sm leading-6 text-slate-600">{message}</p> : null}

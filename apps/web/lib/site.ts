@@ -63,6 +63,7 @@ export const docsIndex = [
 export const workspaceNav = [
   { href: "/workspace", label: "总览" },
   { href: "/workspace/cases", label: "案件" },
+  { href: "/workspace/action-center", label: "动作中心" },
   { href: "/workspace/evidence-packs", label: "证据包" },
   { href: "/workspace/monitoring", label: "监控" },
   { href: "/workspace/drafts", label: "草稿" },

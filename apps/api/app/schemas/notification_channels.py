@@ -11,6 +11,8 @@ class NotificationChannelType(str, Enum):
 
 class NotificationChannelRecord(BaseModel):
     channel_id: str
+    organization_id: str = "org-default"
+    owner_user_id: str = "system"
     channel_type: NotificationChannelType
     name: str
     target: str
